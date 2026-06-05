@@ -1,26 +1,229 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* dark:* utilities follow our data-theme attribute, not the OS media query */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Theme tokens. Two layers: app-shell (--bg/--fg/...) and reader-content
+   (--reader-*). Each named theme redefines the same flat set of variables, so
+   switching the data-theme attribute reskins everything with no rebuild.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:root,
+[data-theme="light"] {
+  --bg: #fcfbf8;
+  --fg: #1c1917;
+  --surface: #ffffff;
+  --surface-2: #f5f2ec;
+  --muted: #f1ede4;
+  --muted-fg: #6f6b63;
+  --border: #e7e1d5;
+  --border-strong: #d6cebe;
+  --accent: #b45309;
+  --accent-fg: #ffffff;
+  --accent-soft: #fdf4e7;
+  --ring: #b45309;
+  --destructive: #b91c1c;
+  --radius: 0.6rem;
+
+  --reader-bg: #fbfaf6;
+  --reader-fg: #26211b;
+  --reader-link: #9a4d0e;
+  --reader-selection: #f4e3c6;
+  --reader-muted: #6f6b63;
+}
+
+[data-theme="paper"] {
+  --bg: #f3ead6;
+  --fg: #3b342a;
+  --surface: #f8f1e1;
+  --surface-2: #ece0c8;
+  --muted: #e9dcc2;
+  --muted-fg: #6e6149;
+  --border: #ddcfb2;
+  --border-strong: #cbb892;
+  --accent: #835012;
+  --accent-fg: #fff8ec;
+  --accent-soft: #ead9b6;
+  --ring: #835012;
+  --destructive: #a12b22;
+  --radius: 0.6rem;
+
+  --reader-bg: #f2e8d2;
+  --reader-fg: #43392b;
+  --reader-link: #845018;
+  --reader-selection: #e2cea2;
+  --reader-muted: #756748;
+}
+
+[data-theme="sepia"] {
+  --bg: #e7dac0;
+  --fg: #43361f;
+  --surface: #efe3cb;
+  --surface-2: #deceac;
+  --muted: #dbcba6;
+  --muted-fg: #6b5c3e;
+  --border: #cdbb95;
+  --border-strong: #b9a377;
+  --accent: #6f4717;
+  --accent-fg: #fbf3e2;
+  --accent-soft: #ddcba0;
+  --ring: #6f4717;
+  --destructive: #9a2b1e;
+  --radius: 0.6rem;
+
+  --reader-bg: #e8dcc2;
+  --reader-fg: #463821;
+  --reader-link: #7c4f18;
+  --reader-selection: #d6be8e;
+  --reader-muted: #6b5c3e;
+}
+
+[data-theme="dark"] {
+  --bg: #1a1714;
+  --fg: #ece7dd;
+  --surface: #232019;
+  --surface-2: #2b271f;
+  --muted: #2b271f;
+  --muted-fg: #a8a096;
+  --border: #332e26;
+  --border-strong: #443e33;
+  --accent: #f59e0b;
+  --accent-fg: #1a1714;
+  --accent-soft: #2e2515;
+  --ring: #f59e0b;
+  --destructive: #f87171;
+  --radius: 0.6rem;
+
+  --reader-bg: #161310;
+  --reader-fg: #d8d0c3;
+  --reader-link: #f2b44d;
+  --reader-selection: #3a2e18;
+  --reader-muted: #a8a096;
+}
+
+[data-theme="eink"] {
+  --bg: #ffffff;
+  --fg: #000000;
+  --surface: #ffffff;
+  --surface-2: #f2f2f2;
+  --muted: #f2f2f2;
+  --muted-fg: #2b2b2b;
+  --border: #000000;
+  --border-strong: #000000;
+  --accent: #000000;
+  --accent-fg: #ffffff;
+  --accent-soft: #eaeaea;
+  --ring: #000000;
+  --destructive: #000000;
+  --radius: 0rem;
+
+  --reader-bg: #ffffff;
+  --reader-fg: #000000;
+  --reader-link: #000000;
+  --reader-selection: #c8c8c8;
+  --reader-muted: #2b2b2b;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg: var(--bg);
+  --color-fg: var(--fg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-muted: var(--muted);
+  --color-muted-fg: var(--muted-fg);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-ring: var(--ring);
+  --color-destructive: var(--destructive);
+
+  --color-reader-bg: var(--reader-bg);
+  --color-reader-fg: var(--reader-fg);
+  --color-reader-link: var(--reader-link);
+  --color-reader-muted: var(--reader-muted);
+
+  --font-display: var(--font-cormorant), Georgia, "Times New Roman", serif;
+  --font-reading: var(--font-literata), Georgia, "Times New Roman", serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* OpenDyslexic is an opt-in reading face. Drop the woff2 files into
+   /public/fonts to activate; until then it falls back to a legible serif. */
+@font-face {
+  font-family: "OpenDyslexic";
+  src: url("/fonts/OpenDyslexic-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background-color: var(--reader-selection);
+    color: var(--fg);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* E-ink mode: flatten everything — no rounding, no shadows, hairline frames */
+  [data-theme="eink"] * {
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  /* Respect reduced-motion globally for decorative transitions */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* thin, theme-aware scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ── Editorial / reading typography helpers ──────────────────────────────── */
+.font-display {
+  font-family: var(--font-display);
+}
+.font-reading {
+  font-family: var(--font-reading);
+}
+
+/* Drop-cap for the first paragraph of long-form content */
+.drop-cap::first-letter {
+  font-family: var(--font-display);
+  font-weight: 600;
+  float: left;
+  font-size: 3.4em;
+  line-height: 0.78;
+  padding-right: 0.08em;
+  padding-top: 0.05em;
+  color: var(--accent);
 }
