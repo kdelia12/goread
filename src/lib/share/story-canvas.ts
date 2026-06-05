@@ -2,18 +2,23 @@ import { STORY_WIDTH, STORY_HEIGHT } from "./dimensions";
 import { wrapText, clampLines } from "./text";
 import { PALETTES, type CoverPalette } from "../cover";
 
-/** Web-safe font presets for the share card (no font-loading race). */
+/** Beautiful self-hosted display faces for the share card (see globals.css). */
 export const SHARE_FONTS = [
-  { id: "serif", label: "Serif", family: "Georgia, 'Times New Roman', serif" },
-  { id: "sans", label: "Sans", family: "'Helvetica Neue', Arial, sans-serif" },
-  { id: "mono", label: "Mono", family: "'Courier New', monospace" },
-  { id: "rounded", label: "Rounded", family: "'Trebuchet MS', 'Segoe UI', sans-serif" },
+  { id: "playfair", label: "Playfair", name: "Playfair Display", family: "'Playfair Display', Georgia, serif" },
+  { id: "cormorant", label: "Cormorant", name: "Cormorant", family: "'Cormorant', Georgia, serif" },
+  { id: "fraunces", label: "Fraunces", name: "Fraunces", family: "'Fraunces', Georgia, serif" },
+  { id: "garamond", label: "Garamond", name: "EB Garamond", family: "'EB Garamond', Georgia, serif" },
+  { id: "inter", label: "Inter", name: "Inter Share", family: "'Inter Share', system-ui, sans-serif" },
 ] as const;
 
 export type ShareFontId = (typeof SHARE_FONTS)[number]["id"];
 
 export function shareFontFamily(id: ShareFontId): string {
   return SHARE_FONTS.find((f) => f.id === id)?.family ?? SHARE_FONTS[0].family;
+}
+
+export function shareFontName(id: ShareFontId): string {
+  return SHARE_FONTS.find((f) => f.id === id)?.name ?? SHARE_FONTS[0].name;
 }
 
 /** Background colour presets for the share card. */

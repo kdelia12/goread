@@ -31,9 +31,12 @@ import {
   saveProgress,
   markReadToday,
   addBookmark,
+  removeBookmark,
+  getBookmarks,
   addQuote,
 } from "@/lib/local-store";
 import { formatPercent } from "@/lib/reading-position";
+import { cn } from "@/lib/utils";
 import { cleanQuoteText, makeQuoteId, quoteCaption, quoteAttribution } from "@/lib/share/quotes";
 import { coverPaletteFor } from "@/lib/cover";
 import { ShareDialog } from "@/components/share/share-dialog";
@@ -79,6 +82,7 @@ export function Reader({ id, title, author }: ReaderProps) {
   const [toc, setToc] = useState<{ label: string; index: number }[]>([]);
   const [colors, setColors] = useState({ bg: "#fff", fg: "#111", link: "#915", selection: "#eee" });
   const [hint, setHint] = useState<string | null>(null);
+  const [bookmarkId, setBookmarkId] = useState<string | null>(null);
   const [share, setShare] = useState<
     null | { spec: Parameters<typeof ShareDialog>[0]["spec"]; caption: string }
   >(null);
@@ -177,6 +181,12 @@ export function Reader({ id, title, author }: ReaderProps) {
     return () => document.removeEventListener("keydown", onKey);
   }, [panel]);
 
+  // Reflect whether the current chapter is already bookmarked.
+  useEffect(() => {
+    const existing = getBookmarks(id).find((b) => b.cfi?.startsWith(`chapter:${chapter}`));
+    setBookmarkId(existing?.id ?? null);
+  }, [id, chapter]);
+
   // Re-inject the document whenever content, theme, or typography changes.
   useEffect(() => {
     if (!prefs || !iframeRef.current || !html) return;
@@ -257,10 +267,17 @@ export function Reader({ id, title, author }: ReaderProps) {
     setTimeout(() => setHint(null), 2600);
   }
 
-  function bookmarkHere() {
+  function toggleBookmark() {
+    if (bookmarkId) {
+      removeBookmark(bookmarkId);
+      setBookmarkId(null);
+      flashHint("Bookmark removed.");
+      return;
+    }
     const now = Date.now();
+    const newId = `bm_${id}_${now}`;
     addBookmark({
-      id: `bm_${id}_${now}`,
+      id: newId,
       bookId: id,
       cfi: `chapter:${chapter}`,
       percentage: pct,
@@ -269,7 +286,8 @@ export function Reader({ id, title, author }: ReaderProps) {
       updatedAt: now,
       deletedAt: null,
     });
-    flashHint("Bookmark saved.");
+    setBookmarkId(newId);
+    flashHint("Bookmarked.");
   }
 
   function captureQuote() {
@@ -325,8 +343,14 @@ export function Reader({ id, title, author }: ReaderProps) {
         <IconBtn label="Save quote" onClick={captureQuote}>
           <QuoteIcon className="h-5 w-5" />
         </IconBtn>
-        <IconBtn label="Bookmark" onClick={bookmarkHere}>
-          <Bookmark className="h-5 w-5" />
+        <IconBtn
+          label={bookmarkId ? "Remove bookmark" : "Bookmark this spot"}
+          onClick={toggleBookmark}
+        >
+          <Bookmark
+            className={cn("h-5 w-5", bookmarkId && "text-accent")}
+            fill={bookmarkId ? "currentColor" : "none"}
+          />
         </IconBtn>
         <IconBtn label="Contents" onClick={() => setPanel((p) => (p === "toc" ? "none" : "toc"))}>
           <List className="h-5 w-5" />

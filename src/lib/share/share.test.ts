@@ -26,8 +26,8 @@ describe("share customization presets", () => {
   it("exposes font + colour presets and resolves families", () => {
     expect(SHARE_FONTS.length).toBeGreaterThanOrEqual(3);
     expect(SHARE_PALETTES.length).toBeGreaterThanOrEqual(4);
-    expect(shareFontFamily("serif")).toMatch(/Georgia/);
-    expect(shareFontFamily("mono")).toMatch(/Courier/);
+    expect(shareFontFamily("playfair")).toMatch(/Playfair/);
+    expect(shareFontFamily("inter")).toMatch(/Inter/);
   });
 });
 

@@ -8,6 +8,7 @@ import {
   SHARE_FONTS,
   SHARE_PALETTES,
   shareFontFamily,
+  shareFontName,
   type StorySpec,
   type ShareFontId,
 } from "@/lib/share/story-canvas";
@@ -51,7 +52,7 @@ export function ShareDialog({
   const [canShareFiles, setCanShareFiles] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const [fontId, setFontId] = useState<ShareFontId>("serif");
+  const [fontId, setFontId] = useState<ShareFontId>("playfair");
   const [palette, setPalette] = useState<CoverPalette>(spec.palette);
   const [coverReady, setCoverReady] = useState(false);
 
@@ -80,17 +81,33 @@ export function ShareDialog({
     };
   }, [spec]);
 
-  // Re-render whenever the cover, font, or colour changes.
+  // Re-render whenever the cover, font, or colour changes (after the font loads).
   useEffect(() => {
     if (!coverReady) return;
-    const canvas = canvasRef.current ?? document.createElement("canvas");
-    canvasRef.current = canvas;
-    renderStory(canvas, spec, {
-      coverImg: coverImgRef.current,
-      fontFamily: shareFontFamily(fontId),
-      palette,
-    });
-    setPreview(canvas.toDataURL("image/png"));
+    let cancelled = false;
+    (async () => {
+      const name = shareFontName(fontId);
+      try {
+        await Promise.all([
+          document.fonts.load(`600 64px "${name}"`),
+          document.fonts.load(`italic 400 40px "${name}"`),
+        ]);
+      } catch {
+        /* fall back to the system serif */
+      }
+      if (cancelled) return;
+      const canvas = canvasRef.current ?? document.createElement("canvas");
+      canvasRef.current = canvas;
+      renderStory(canvas, spec, {
+        coverImg: coverImgRef.current,
+        fontFamily: shareFontFamily(fontId),
+        palette,
+      });
+      setPreview(canvas.toDataURL("image/png"));
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [coverReady, fontId, palette, spec]);
 
   // Feature-detect file sharing + escape/focus handling.
