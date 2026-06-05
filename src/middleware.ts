@@ -1,15 +1,21 @@
-import { clerkMiddleware } from "@clerk/nextjs/server";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 /**
- * Clerk middleware is only engaged when Clerk is configured. In guest mode we
- * fall through to a no-op so the app runs with zero credentials.
+ * Clerk middleware. Engaged only when Clerk is configured. `/stats` is a
+ * members-only route — guests hitting it are redirected to sign-in.
  */
 const authEnabled = Boolean(
   process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY && process.env.CLERK_SECRET_KEY,
 );
 
-export default authEnabled ? clerkMiddleware() : () => NextResponse.next();
+const isProtectedRoute = createRouteMatcher(["/stats(.*)"]);
+
+const handler = clerkMiddleware(async (auth, req) => {
+  if (isProtectedRoute(req)) await auth.protect();
+});
+
+export default authEnabled ? handler : () => NextResponse.next();
 
 export const config = {
   matcher: [

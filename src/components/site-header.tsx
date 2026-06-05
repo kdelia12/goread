@@ -32,6 +32,14 @@ export function SiteHeader({ authEnabled }: { authEnabled: boolean }) {
           >
             Library
           </Link>
+          {authEnabled ? (
+            <Link
+              href="/stats"
+              className="rounded-[var(--radius)] px-3 py-1.5 text-sm text-muted-fg transition-colors hover:bg-surface-2 hover:text-fg"
+            >
+              Stats
+            </Link>
+          ) : null}
         </nav>
 
         <div className="ml-auto flex items-center gap-1.5">
