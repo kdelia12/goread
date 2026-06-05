@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ShareButton } from "@/components/share/share-button";
 import { coverPaletteFor, coverInitials } from "@/lib/cover";
 import { bookCaption } from "@/lib/share/quotes";
+import { displayTitle } from "@/lib/format";
 
 export function BookActions({
   id,
@@ -25,12 +26,14 @@ export function BookActions({
     setSaved(inLibrary(id));
   }, [id]);
 
+  const short = displayTitle(title);
   const spec = {
     kind: "book" as const,
-    title,
+    title: short,
     author,
-    initials: coverInitials(title),
+    initials: coverInitials(short),
     palette: coverPaletteFor(title),
+    coverUrl: `/api/books/${id}/cover`,
   };
 
   return (
@@ -52,7 +55,7 @@ export function BookActions({
           </>
         )}
       </Button>
-      <ShareButton spec={spec} caption={bookCaption({ title, author })} filename={`goread-book-${id}.png`} />
+      <ShareButton spec={spec} caption={bookCaption({ title: short, author })} filename={`goread-book-${id}.png`} />
     </div>
   );
 }

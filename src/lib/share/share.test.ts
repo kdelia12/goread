@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { STORY_WIDTH, STORY_HEIGHT, STORY_ASPECT } from "./dimensions";
 import { wrapText, clampLines } from "./text";
+import { SHARE_FONTS, SHARE_PALETTES, shareFontFamily } from "./story-canvas";
 import {
   quoteAttribution,
   quoteCaption,
@@ -18,6 +19,15 @@ describe("story dimensions (Instagram Story 9:16)", () => {
   it("is a perfect 9:16 portrait", () => {
     expect(STORY_ASPECT).toBeCloseTo(9 / 16, 10);
     expect(STORY_WIDTH / 9).toBe(STORY_HEIGHT / 16);
+  });
+});
+
+describe("share customization presets", () => {
+  it("exposes font + colour presets and resolves families", () => {
+    expect(SHARE_FONTS.length).toBeGreaterThanOrEqual(3);
+    expect(SHARE_PALETTES.length).toBeGreaterThanOrEqual(4);
+    expect(shareFontFamily("serif")).toMatch(/Georgia/);
+    expect(shareFontFamily("mono")).toMatch(/Courier/);
   });
 });
 

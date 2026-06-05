@@ -1,6 +1,23 @@
 import { STORY_WIDTH, STORY_HEIGHT } from "./dimensions";
 import { wrapText, clampLines } from "./text";
-import type { CoverPalette } from "../cover";
+import { PALETTES, type CoverPalette } from "../cover";
+
+/** Web-safe font presets for the share card (no font-loading race). */
+export const SHARE_FONTS = [
+  { id: "serif", label: "Serif", family: "Georgia, 'Times New Roman', serif" },
+  { id: "sans", label: "Sans", family: "'Helvetica Neue', Arial, sans-serif" },
+  { id: "mono", label: "Mono", family: "'Courier New', monospace" },
+  { id: "rounded", label: "Rounded", family: "'Trebuchet MS', 'Segoe UI', sans-serif" },
+] as const;
+
+export type ShareFontId = (typeof SHARE_FONTS)[number]["id"];
+
+export function shareFontFamily(id: ShareFontId): string {
+  return SHARE_FONTS.find((f) => f.id === id)?.family ?? SHARE_FONTS[0].family;
+}
+
+/** Background colour presets for the share card. */
+export const SHARE_PALETTES = PALETTES;
 
 /**
  * Client-only renderer that paints a share card onto a 1080×1920 canvas. Uses
@@ -10,7 +27,14 @@ import type { CoverPalette } from "../cover";
 export type StorySpec =
   | { kind: "quote"; text: string; attribution: string; palette: CoverPalette }
   | { kind: "streak"; current: number; longest: number; palette: CoverPalette }
-  | { kind: "book"; title: string; author: string; initials: string; palette: CoverPalette };
+  | {
+      kind: "book";
+      title: string;
+      author: string;
+      initials: string;
+      palette: CoverPalette;
+      coverUrl?: string;
+    };
 
 const SERIF = "Georgia, 'Times New Roman', serif";
 const PAD = 96;
@@ -40,14 +64,14 @@ function paintBackground(ctx: CanvasRenderingContext2D, palette: CoverPalette) {
   ctx.globalAlpha = 1;
 }
 
-function paintWordmark(ctx: CanvasRenderingContext2D, palette: CoverPalette) {
+function paintWordmark(ctx: CanvasRenderingContext2D, palette: CoverPalette, serif: string) {
   ctx.fillStyle = palette.fg;
   ctx.globalAlpha = 0.92;
-  ctx.font = `italic 600 56px ${SERIF}`;
+  ctx.font = `italic 600 56px ${serif}`;
   ctx.textAlign = "center";
   ctx.fillText("goread", STORY_WIDTH / 2, 150);
   ctx.globalAlpha = 0.7;
-  ctx.font = `400 26px ${SERIF}`;
+  ctx.font = `400 26px ${serif}`;
   ctx.fillText("the classics, free", STORY_WIDTH / 2, 196);
   ctx.globalAlpha = 1;
 }
@@ -67,22 +91,66 @@ function paintLines(
   return y;
 }
 
-export function renderStory(canvas: HTMLCanvasElement, spec: StorySpec): void {
+/** Draw an image to cover a rounded rect (object-fit: cover). */
+function drawImageCover(
+  ctx: CanvasRenderingContext2D,
+  img: CanvasImageSource,
+  w0: number,
+  h0: number,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+) {
+  ctx.save();
+  roundRect(ctx, x, y, w, h, r);
+  ctx.clip();
+  const imgRatio = w0 / h0;
+  const boxRatio = w / h;
+  let dw: number;
+  let dh: number;
+  if (imgRatio > boxRatio) {
+    dh = h;
+    dw = h * imgRatio;
+  } else {
+    dw = w;
+    dh = w / imgRatio;
+  }
+  ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
+  ctx.restore();
+}
+
+export interface RenderOptions {
+  coverImg?: HTMLImageElement | null;
+  /** override the card font (see SHARE_FONTS); defaults to serif */
+  fontFamily?: string;
+  /** override the background palette; defaults to spec.palette */
+  palette?: CoverPalette;
+}
+
+export function renderStory(
+  canvas: HTMLCanvasElement,
+  spec: StorySpec,
+  opts: RenderOptions = {},
+): void {
   canvas.width = STORY_WIDTH;
   canvas.height = STORY_HEIGHT;
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
-  const { palette } = spec;
+  const palette = opts.palette ?? spec.palette;
+  const serif = opts.fontFamily ?? SERIF;
+  const coverImg = opts.coverImg;
 
   paintBackground(ctx, palette);
-  paintWordmark(ctx, palette);
+  paintWordmark(ctx, palette, serif);
   ctx.fillStyle = palette.fg;
   ctx.textAlign = "center";
 
   if (spec.kind === "quote") {
     const maxW = STORY_WIDTH - PAD * 2;
     const fontSize = spec.text.length > 240 ? 60 : spec.text.length > 120 ? 72 : 88;
-    ctx.font = `500 ${fontSize}px ${SERIF}`;
+    ctx.font = `500 ${fontSize}px ${serif}`;
     const measure = (t: string) => ctx.measureText(t).width;
     const lines = clampLines(wrapText(`“${spec.text}”`, maxW, measure), 12);
     const lineHeight = fontSize * 1.32;
@@ -90,20 +158,20 @@ export function renderStory(canvas: HTMLCanvasElement, spec: StorySpec): void {
     const startY = STORY_HEIGHT / 2 - blockHeight / 2;
     const endY = paintLines(ctx, lines, startY, lineHeight);
     ctx.globalAlpha = 0.85;
-    ctx.font = `italic 400 38px ${SERIF}`;
+    ctx.font = `italic 400 38px ${serif}`;
     ctx.fillText(spec.attribution, STORY_WIDTH / 2, endY + 70);
     ctx.globalAlpha = 1;
   } else if (spec.kind === "streak") {
-    ctx.font = `600 360px ${SERIF}`;
+    ctx.font = `600 360px ${serif}`;
     ctx.fillText(String(spec.current), STORY_WIDTH / 2, STORY_HEIGHT / 2 + 60);
-    ctx.font = `500 64px ${SERIF}`;
+    ctx.font = `500 64px ${serif}`;
     ctx.fillText(
       spec.current === 1 ? "day reading streak" : "days reading streak",
       STORY_WIDTH / 2,
       STORY_HEIGHT / 2 + 200,
     );
     ctx.globalAlpha = 0.8;
-    ctx.font = `400 40px ${SERIF}`;
+    ctx.font = `400 40px ${serif}`;
     ctx.fillText(`Longest: ${spec.longest} days`, STORY_WIDTH / 2, STORY_HEIGHT / 2 + 280);
     ctx.globalAlpha = 1;
   } else {
@@ -112,23 +180,28 @@ export function renderStory(canvas: HTMLCanvasElement, spec: StorySpec): void {
     const ch = 690;
     const cx = STORY_WIDTH / 2 - cw / 2;
     const cy = STORY_HEIGHT / 2 - ch / 2 - 60;
-    ctx.globalAlpha = 0.16;
+    if (coverImg && coverImg.width > 0 && coverImg.height > 0) {
+      drawImageCover(ctx, coverImg, coverImg.width, coverImg.height, cx, cy, cw, ch, 18);
+    } else {
+      ctx.globalAlpha = 0.16;
+      ctx.fillStyle = palette.fg;
+      roundRect(ctx, cx, cy, cw, ch, 18);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = palette.fg;
+      ctx.font = `600 200px ${serif}`;
+      ctx.fillText(spec.initials, STORY_WIDTH / 2, cy + ch / 2 + 70);
+    }
     ctx.fillStyle = palette.fg;
-    roundRect(ctx, cx, cy, cw, ch, 18);
-    ctx.fill();
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = palette.fg;
-    ctx.font = `600 200px ${SERIF}`;
-    ctx.fillText(spec.initials, STORY_WIDTH / 2, cy + ch / 2 + 70);
 
     const maxW = STORY_WIDTH - PAD * 2;
-    ctx.font = `600 64px ${SERIF}`;
+    ctx.font = `600 64px ${serif}`;
     const measure = (t: string) => ctx.measureText(t).width;
     const titleLines = clampLines(wrapText(spec.title, maxW, measure), 3);
     const titleY = cy + ch + 90;
     const endY = paintLines(ctx, titleLines, titleY, 76);
     ctx.globalAlpha = 0.82;
-    ctx.font = `italic 400 40px ${SERIF}`;
+    ctx.font = `italic 400 40px ${serif}`;
     ctx.fillText(spec.author, STORY_WIDTH / 2, endY + 20);
     ctx.globalAlpha = 1;
   }

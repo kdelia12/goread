@@ -5,6 +5,7 @@ import {
   pickEpubUrl,
   pickTextUrl,
 } from "./gutenberg-mirror";
+import { displayAuthorName } from "./format";
 
 /** The loosely-typed raw shapes Gutendex returns. */
 interface RawAuthor {
@@ -87,5 +88,5 @@ export function normalizeList(raw: RawGutendexList): BookList {
 /** Convenience: a one-line author byline like "Jane Austen". */
 export function authorByline(book: Book): string {
   if (book.authors.length === 0) return "Unknown author";
-  return book.authors.map((a) => a.name).join(", ");
+  return book.authors.map((a) => displayAuthorName(a.name)).join(", ");
 }

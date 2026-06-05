@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getRecentBooks, getProgress, type BookStub } from "@/lib/local-store";
 import { progressLabel } from "@/lib/reading-position";
+import { displayTitle } from "@/lib/format";
 import { BookCover } from "./book-cover";
 
 interface Item {
@@ -38,12 +39,12 @@ export function ContinueReading() {
             href={`/read/${stub.id}`}
             className="group w-32 shrink-0 snap-start sm:w-36 md:w-40"
           >
-            <BookCover title={stub.title} author={stub.author} coverUrl={stub.coverUrl} className="shadow-sm" />
+            <BookCover title={displayTitle(stub.title)} author={stub.author} coverUrl={stub.coverUrl} className="shadow-sm" />
             <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
               <div className="h-full rounded-full bg-accent" style={{ width: `${Math.round(pct * 100)}%` }} />
             </div>
             <h3 className="mt-1.5 line-clamp-1 font-display text-sm font-semibold text-fg group-hover:text-accent">
-              {stub.title}
+              {displayTitle(stub.title)}
             </h3>
             <p className="text-xs text-muted-fg">{label}</p>
           </Link>

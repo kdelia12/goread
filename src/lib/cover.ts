@@ -10,7 +10,7 @@ export interface CoverPalette {
   fg: string;
 }
 
-const PALETTES: CoverPalette[] = [
+export const PALETTES: CoverPalette[] = [
   { from: "#7c2d12", to: "#b45309", fg: "#fdf4e7" }, // burnt amber
   { from: "#1e3a5f", to: "#3b6ea5", fg: "#eaf2fb" }, // ink blue
   { from: "#3f3f46", to: "#71717a", fg: "#f4f4f5" }, // slate

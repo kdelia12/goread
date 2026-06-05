@@ -2,8 +2,18 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Download, Share2, Copy, Check, X } from "lucide-react";
-import { renderStory, canvasToBlob, type StorySpec } from "@/lib/share/story-canvas";
+import {
+  renderStory,
+  canvasToBlob,
+  SHARE_FONTS,
+  SHARE_PALETTES,
+  shareFontFamily,
+  type StorySpec,
+  type ShareFontId,
+} from "@/lib/share/story-canvas";
+import type { CoverPalette } from "@/lib/cover";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface ShareDialogProps {
   spec: StorySpec;
@@ -17,6 +27,15 @@ type ShareCapableNavigator = Navigator & {
   share?: (data?: ShareData) => Promise<void>;
 };
 
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("image load failed"));
+    img.src = src;
+  });
+}
+
 export function ShareDialog({
   spec,
   caption,
@@ -24,16 +43,58 @@ export function ShareDialog({
   onClose,
 }: ShareDialogProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const coverImgRef = useRef<HTMLImageElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+
   const [preview, setPreview] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [canShareFiles, setCanShareFiles] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  const [fontId, setFontId] = useState<ShareFontId>("serif");
+  const [palette, setPalette] = useState<CoverPalette>(spec.palette);
+  const [coverReady, setCoverReady] = useState(false);
+
+  // Load the cover image once per spec.
   useEffect(() => {
-    const canvas = document.createElement("canvas");
+    let cancelled = false;
+    setCoverReady(false);
+    coverImgRef.current = null;
+    setPalette(spec.palette);
+    const coverUrl = spec.kind === "book" ? spec.coverUrl : undefined;
+    if (!coverUrl) {
+      setCoverReady(true);
+      return;
+    }
+    loadImage(coverUrl)
+      .then((img) => {
+        if (cancelled) return;
+        coverImgRef.current = img;
+        setCoverReady(true);
+      })
+      .catch(() => {
+        if (!cancelled) setCoverReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [spec]);
+
+  // Re-render whenever the cover, font, or colour changes.
+  useEffect(() => {
+    if (!coverReady) return;
+    const canvas = canvasRef.current ?? document.createElement("canvas");
     canvasRef.current = canvas;
-    renderStory(canvas, spec);
+    renderStory(canvas, spec, {
+      coverImg: coverImgRef.current,
+      fontFamily: shareFontFamily(fontId),
+      palette,
+    });
     setPreview(canvas.toDataURL("image/png"));
+  }, [coverReady, fontId, palette, spec]);
+
+  // Feature-detect file sharing + escape/focus handling.
+  useEffect(() => {
     try {
       const probe = new File([new Blob()], filename, { type: "image/png" });
       const nav = navigator as ShareCapableNavigator;
@@ -41,7 +102,7 @@ export function ShareDialog({
     } catch {
       setCanShareFiles(false);
     }
-  }, [spec, filename]);
+  }, [filename]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -49,8 +110,6 @@ export function ShareDialog({
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  // Move focus into the dialog on open, restore it to the trigger on close.
-  const panelRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const previouslyFocused = document.activeElement as HTMLElement | null;
     panelRef.current?.focus();
@@ -105,7 +164,7 @@ export function ShareDialog({
       <div
         ref={panelRef}
         tabIndex={-1}
-        className="w-full max-w-sm rounded-[var(--radius)] border border-border bg-surface p-5 shadow-2xl outline-none"
+        className="max-h-[92dvh] w-full max-w-sm overflow-y-auto rounded-[var(--radius)] border border-border bg-surface p-5 shadow-2xl outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
@@ -125,7 +184,7 @@ export function ShareDialog({
             <img
               src={preview}
               alt="Story preview"
-              className="mx-auto max-h-[52vh] w-full object-contain"
+              className="mx-auto max-h-[44vh] w-full object-contain"
               style={{ aspectRatio: "9 / 16" }}
             />
           ) : (
@@ -133,12 +192,57 @@ export function ShareDialog({
           )}
         </div>
 
+        {/* font picker */}
+        <div className="mt-3">
+          <p className="mb-1.5 text-xs font-medium text-muted-fg">Font</p>
+          <div className="flex gap-1.5">
+            {SHARE_FONTS.map((f) => (
+              <button
+                key={f.id}
+                onClick={() => setFontId(f.id)}
+                style={{ fontFamily: f.family }}
+                className={cn(
+                  "flex-1 cursor-pointer rounded-[var(--radius)] border px-2 py-1.5 text-xs transition-colors",
+                  fontId === f.id
+                    ? "border-accent bg-accent-soft text-fg"
+                    : "border-border text-fg hover:bg-surface-2",
+                )}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* colour picker */}
+        <div className="mt-3">
+          <p className="mb-1.5 text-xs font-medium text-muted-fg">Colour</p>
+          <div className="flex flex-wrap gap-2">
+            {SHARE_PALETTES.map((p, i) => {
+              const active = palette.from === p.from && palette.to === p.to;
+              return (
+                <button
+                  key={i}
+                  aria-label={`Colour ${i + 1}`}
+                  aria-pressed={active}
+                  onClick={() => setPalette(p)}
+                  className={cn(
+                    "h-7 w-7 cursor-pointer rounded-full border-2 transition-transform hover:scale-110",
+                    active ? "border-accent" : "border-border",
+                  )}
+                  style={{ backgroundImage: `linear-gradient(135deg, ${p.from}, ${p.to})` }}
+                />
+              );
+            })}
+          </div>
+        </div>
+
         <p className="mt-3 text-xs text-muted-fg">
           1080×1920 — sized for Instagram Stories.{" "}
           {canShareFiles ? "Tap Share, then choose Instagram." : "Save the image, then add it to your story."}
         </p>
 
-        <div className="mt-4 space-y-2">
+        <div className="mt-3 space-y-2">
           {canShareFiles ? (
             <Button onClick={handleShare} disabled={busy} className="w-full">
               <Share2 className="h-4 w-4" /> {busy ? "Preparing…" : "Share…"}

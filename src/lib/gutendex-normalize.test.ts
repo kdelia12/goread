@@ -96,8 +96,8 @@ describe("normalizeList", () => {
 });
 
 describe("authorByline", () => {
-  it("joins author names", () => {
-    expect(authorByline(normalizeBook(RAW))).toBe("Austen, Jane");
+  it("joins author names in display order", () => {
+    expect(authorByline(normalizeBook(RAW))).toBe("Jane Austen");
   });
   it("handles no authors", () => {
     expect(authorByline(normalizeBook({ id: 1 }))).toBe("Unknown author");
