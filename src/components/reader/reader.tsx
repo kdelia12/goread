@@ -19,6 +19,7 @@ import {
 import {
   loadEpub,
   renderChapterHtml,
+  renderAllHtml,
   releaseBook,
   type LoadedBook,
 } from "@/lib/epub/book-loader";
@@ -63,6 +64,7 @@ export function Reader({ id, title, author }: ReaderProps) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const bookRef = useRef<LoadedBook | null>(null);
   const restoreFracRef = useRef(0);
+  const restorePctRef = useRef(0);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const detachScrollRef = useRef<(() => void) | null>(null);
 
@@ -80,6 +82,8 @@ export function Reader({ id, title, author }: ReaderProps) {
   const [share, setShare] = useState<
     null | { spec: Parameters<typeof ShareDialog>[0]["spec"]; caption: string }
   >(null);
+
+  const continuous = prefs?.continuousScroll ?? false;
 
   useEffect(() => setPrefs(getPreferences()), []);
 
@@ -106,11 +110,17 @@ export function Reader({ id, title, author }: ReaderProps) {
         setSpineLen(book.structure.spine.length);
         setToc(book.structure.spine.map((s, i) => ({ label: tocLabel(s.href, i), index: i })));
         const saved = getProgress(id);
+        const n = book.structure.spine.length;
+        restorePctRef.current = saved?.percentage ?? 0;
         let startCh = 0;
         if (saved?.cfi?.startsWith("chapter:")) {
           const [, chStr, fracStr] = saved.cfi.split(":");
-          startCh = Math.min(book.structure.spine.length - 1, Math.max(0, parseInt(chStr, 10) || 0));
+          startCh = Math.min(n - 1, Math.max(0, parseInt(chStr, 10) || 0));
           restoreFracRef.current = Number(fracStr) || 0;
+        } else if (saved?.percentage && n > 0) {
+          // saved while in continuous mode — approximate a chapter for paginated
+          startCh = Math.min(n - 1, Math.floor(saved.percentage * n));
+          restoreFracRef.current = (saved.percentage * n) % 1;
         }
         setChapter(startCh);
         setPct(saved?.percentage ?? 0);
@@ -129,21 +139,24 @@ export function Reader({ id, title, author }: ReaderProps) {
     };
   }, [id]);
 
-  // Render the current chapter's HTML.
+  // Render the current chapter (or the whole book, in continuous mode).
   useEffect(() => {
     if (status !== "ready" || !bookRef.current) return;
     let cancelled = false;
-    renderChapterHtml(bookRef.current, chapter)
+    const job = continuous
+      ? renderAllHtml(bookRef.current)
+      : renderChapterHtml(bookRef.current, chapter);
+    job
       .then((h) => {
         if (!cancelled) setHtml(h);
       })
       .catch(() => {
-        if (!cancelled) setHtml("<p>Sorry — this chapter couldn’t be displayed.</p>");
+        if (!cancelled) setHtml("<p>Sorry — this couldn’t be displayed.</p>");
       });
     return () => {
       cancelled = true;
     };
-  }, [chapter, status]);
+  }, [chapter, status, continuous]);
 
   // Tear down scroll listeners + timers on unmount.
   useEffect(
@@ -183,21 +196,22 @@ export function Reader({ id, title, author }: ReaderProps) {
     const docEl = iframe?.contentDocument?.documentElement;
     if (!win || !docEl) return;
 
-    const frac = restoreFracRef.current;
-    restoreFracRef.current = 0;
     const max = docEl.scrollHeight - win.innerHeight;
-    if (frac > 0 && max > 0) win.scrollTo(0, frac * max);
+    const restore = continuous ? restorePctRef.current : restoreFracRef.current;
+    restoreFracRef.current = 0;
+    restorePctRef.current = 0;
+    if (restore > 0 && max > 0) win.scrollTo(0, restore * max);
 
     const onScroll = () => {
       const sh = docEl.scrollHeight - win.innerHeight;
       const f = sh > 0 ? Math.min(1, Math.max(0, win.scrollY / sh)) : 0;
-      const overall = spineLen > 0 ? (chapter + f) / spineLen : 0;
+      const overall = continuous ? f : spineLen > 0 ? (chapter + f) / spineLen : 0;
       setPct(overall);
       if (saveTimer.current) clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(() => {
         saveProgress({
           bookId: id,
-          cfi: `chapter:${chapter}:${f.toFixed(4)}`,
+          cfi: continuous ? `scroll:${f.toFixed(4)}` : `chapter:${chapter}:${f.toFixed(4)}`,
           percentage: overall,
           locationLabel: null,
           deviceId: null,
@@ -208,12 +222,30 @@ export function Reader({ id, title, author }: ReaderProps) {
     win.addEventListener("scroll", onScroll, { passive: true });
     detachScrollRef.current = () => win.removeEventListener("scroll", onScroll);
     onScroll();
-  }, [chapter, spineLen, id]);
+  }, [chapter, spineLen, id, continuous]);
 
   function go(delta: number) {
     if (spineLen === 0) return;
     setChapter((c) => Math.max(0, Math.min(spineLen - 1, c + delta)));
     setPanel("none");
+  }
+
+  function gotoChapter(index: number) {
+    setPanel("none");
+    if (continuous) {
+      iframeRef.current?.contentDocument?.getElementById(`goread-ch-${index}`)?.scrollIntoView();
+    } else {
+      setChapter(Math.max(0, Math.min(spineLen - 1, index)));
+    }
+  }
+
+  function setContinuous(on: boolean) {
+    restorePctRef.current = pct; // keep the reader's place across the mode switch
+    if (!on && spineLen > 0) {
+      setChapter(Math.min(spineLen - 1, Math.floor(pct * spineLen)));
+      restoreFracRef.current = (pct * spineLen) % 1;
+    }
+    setPrefs(savePreferences({ continuousScroll: on }));
   }
 
   function updatePrefs(patch: Partial<Preferences>) {
@@ -353,16 +385,16 @@ export function Reader({ id, title, author }: ReaderProps) {
               </div>
               <div className="flex-1 overflow-y-auto p-4">
                 {panel === "settings" && prefs ? (
-                  <SettingsPanel prefs={prefs} onChange={updatePrefs} />
+                  <SettingsPanel prefs={prefs} onChange={updatePrefs} onContinuous={setContinuous} />
                 ) : null}
                 {panel === "toc" ? (
                   <ul className="space-y-0.5">
                     {toc.map((t) => (
                       <li key={t.index}>
                         <button
-                          onClick={() => go(t.index - chapter)}
+                          onClick={() => gotoChapter(t.index)}
                           className={`w-full truncate rounded px-2 py-2 text-left text-sm hover:bg-surface-2 ${
-                            t.index === chapter ? "font-semibold text-accent" : "text-fg"
+                            !continuous && t.index === chapter ? "font-semibold text-accent" : "text-fg"
                           }`}
                         >
                           {t.label}
@@ -379,23 +411,31 @@ export function Reader({ id, title, author }: ReaderProps) {
 
       {/* bottom nav */}
       <div className="flex h-14 shrink-0 items-center justify-between border-t border-border px-4">
-        <button
-          onClick={() => go(-1)}
-          disabled={chapter <= 0}
-          className="inline-flex h-9 items-center gap-1 rounded-[var(--radius)] px-3 text-sm text-fg hover:bg-surface-2 disabled:opacity-40"
-        >
-          <ChevronLeft className="h-4 w-4" /> Prev
-        </button>
-        <span className="text-xs tabular-nums text-muted-fg">
-          {spineLen > 0 ? `${chapter + 1} / ${spineLen}` : ""}
-        </span>
-        <button
-          onClick={() => go(1)}
-          disabled={chapter >= spineLen - 1}
-          className="inline-flex h-9 items-center gap-1 rounded-[var(--radius)] px-3 text-sm text-fg hover:bg-surface-2 disabled:opacity-40"
-        >
-          Next <ChevronRight className="h-4 w-4" />
-        </button>
+        {continuous ? (
+          <div className="flex w-full items-center justify-center text-xs tabular-nums text-muted-fg">
+            {formatPercent(pct)} · continuous scroll
+          </div>
+        ) : (
+          <>
+            <button
+              onClick={() => go(-1)}
+              disabled={chapter <= 0}
+              className="inline-flex h-9 items-center gap-1 rounded-[var(--radius)] px-3 text-sm text-fg hover:bg-surface-2 disabled:opacity-40"
+            >
+              <ChevronLeft className="h-4 w-4" /> Prev
+            </button>
+            <span className="text-xs tabular-nums text-muted-fg">
+              {spineLen > 0 ? `${chapter + 1} / ${spineLen}` : ""}
+            </span>
+            <button
+              onClick={() => go(1)}
+              disabled={chapter >= spineLen - 1}
+              className="inline-flex h-9 items-center gap-1 rounded-[var(--radius)] px-3 text-sm text-fg hover:bg-surface-2 disabled:opacity-40"
+            >
+              Next <ChevronRight className="h-4 w-4" />
+            </button>
+          </>
+        )}
       </div>
 
       {hint ? (
@@ -441,12 +481,38 @@ function IconBtn({
 function SettingsPanel({
   prefs,
   onChange,
+  onContinuous,
 }: {
   prefs: Preferences;
   onChange: (patch: Partial<Preferences>) => void;
+  onContinuous: (on: boolean) => void;
 }) {
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium text-fg">
+          Continuous scroll
+          <span className="block text-xs font-normal text-muted-fg">
+            Infinite scroll the whole book
+          </span>
+        </span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={prefs.continuousScroll}
+          aria-label="Continuous scroll"
+          onClick={() => onContinuous(!prefs.continuousScroll)}
+          className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+            prefs.continuousScroll ? "bg-accent" : "bg-border-strong"
+          }`}
+        >
+          <span
+            className={`absolute top-0.5 h-5 w-5 rounded-full bg-surface transition-transform ${
+              prefs.continuousScroll ? "translate-x-[22px]" : "translate-x-0.5"
+            }`}
+          />
+        </button>
+      </div>
       <Stepper
         label="Font size"
         value={`${prefs.fontSizePct}%`}

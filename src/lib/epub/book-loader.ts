@@ -61,7 +61,27 @@ export async function renderChapterHtml(book: LoadedBook, index: number): Promis
     }
   }
 
+  // Neutralise links. Gutenberg cross-references / footnotes and stray <a>
+  // tags are confusing in-reader and error on click inside the sandbox — keep
+  // the text, drop the navigation (and its default underline/colour).
+  for (const a of Array.from(doc.querySelectorAll("a"))) {
+    a.removeAttribute("href");
+    a.removeAttribute("target");
+    a.removeAttribute("xlink:href");
+    a.setAttribute("data-link-disabled", "");
+  }
+
   return doc.body?.innerHTML ?? sanitized;
+}
+
+/** Concatenate every spine chapter into one document for continuous scrolling. */
+export async function renderAllHtml(book: LoadedBook): Promise<string> {
+  const parts: string[] = [];
+  for (let i = 0; i < book.structure.spine.length; i++) {
+    const chapter = await renderChapterHtml(book, i);
+    parts.push(`<section id="goread-ch-${i}" data-ch="${i}">${chapter}</section>`);
+  }
+  return parts.join('\n<hr class="goread-chsep"/>\n');
 }
 
 export function releaseBook(book: LoadedBook | null): void {

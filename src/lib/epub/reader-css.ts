@@ -36,7 +36,10 @@ export function buildReaderCss(theme: ReaderTheme, typo: ReaderTypography): stri
     `body{margin:0;${fontRule}line-height:${typo.lineHeight};background:${theme.bg};color:${theme.fg};` +
       `padding:28px ${typo.marginPct}% 120px;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;overflow-wrap:break-word;}`,
     "img{max-width:100%;height:auto;display:block;margin:1em auto;}",
-    `a{color:${theme.link};text-decoration:underline;}`,
+    // links are neutralised in the reader — render them as plain text
+    "a,a[data-link-disabled]{color:inherit;text-decoration:none;cursor:text;pointer-events:none;}",
+    "hr.goread-chsep{border:none;border-top:1px solid currentColor;opacity:.15;margin:3.5em 0;}",
+    "section[data-ch]{scroll-margin-top:1rem;}",
     `::selection{background:${theme.selection};}`,
     "p{margin:0 0 1em;text-align:justify;hyphens:auto;}",
     "blockquote{margin:1em 1.5em;font-style:italic;opacity:.9;}",

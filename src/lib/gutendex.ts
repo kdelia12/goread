@@ -43,7 +43,21 @@ function buildQuery(params: SearchParams): string {
   return q.toString();
 }
 
-async function fetchJson(url: string, timeoutMs = 8000): Promise<unknown> {
+/**
+ * Circuit breaker: Gutendex is a single volunteer-run instance that is
+ * sometimes unreachable. Once a request fails we skip it for a cool-off window
+ * and serve the bundled catalogue instantly, instead of timing out on every
+ * request. Resets after the window so we retry the live API.
+ */
+let gutendexDownUntil = 0;
+function gutendexDown(): boolean {
+  return Date.now() < gutendexDownUntil;
+}
+function markGutendexDown(): void {
+  gutendexDownUntil = Date.now() + 60_000;
+}
+
+async function fetchJson(url: string, timeoutMs = 6000): Promise<unknown> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -115,32 +129,37 @@ export function fixtureBook(id: number): Book | null {
 // ── Public async API (network with fixture fallback) ────────────────────────
 
 export async function searchBooks(params: SearchParams = {}): Promise<BookList> {
-  if (useFixtures()) return fixtureSearch(params);
+  if (useFixtures() || gutendexDown()) return fixtureSearch(params);
   try {
     const raw = await fetchJson(`${baseUrl()}/books?${buildQuery(params)}`);
     return normalizeList(raw as never);
   } catch {
+    markGutendexDown();
     return fixtureSearch(params);
   }
 }
 
 export async function getBook(id: number): Promise<Book | null> {
-  if (useFixtures()) return fixtureBook(id);
+  if (useFixtures() || gutendexDown()) return fixtureBook(id);
   try {
     const raw = await fetchJson(`${baseUrl()}/books/${id}`);
     return normalizeBook(raw as never);
   } catch {
+    markGutendexDown();
     return fixtureBook(id);
   }
 }
 
 export async function getBooksByIds(ids: number[]): Promise<Book[]> {
   if (ids.length === 0) return [];
-  if (useFixtures()) return ids.map(fixtureBook).filter((b): b is Book => b !== null);
+  if (useFixtures() || gutendexDown()) {
+    return ids.map(fixtureBook).filter((b): b is Book => b !== null);
+  }
   try {
     const list = await searchBooks({ ids });
     return list.results;
   } catch {
+    markGutendexDown();
     return ids.map(fixtureBook).filter((b): b is Book => b !== null);
   }
 }

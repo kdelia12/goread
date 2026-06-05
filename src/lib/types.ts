@@ -83,6 +83,8 @@ export interface Preferences {
   lineHeight: number;
   /** horizontal margin as a percentage of the reader column */
   marginPct: number;
+  /** continuous (infinite) scroll through the whole book vs. chapter-by-chapter */
+  continuousScroll: boolean;
   updatedAt: number;
 }
 
@@ -92,5 +94,6 @@ export const DEFAULT_PREFERENCES: Preferences = {
   fontSizePct: 100,
   lineHeight: 1.6,
   marginPct: 6,
+  continuousScroll: false,
   updatedAt: 0,
 };

@@ -28,7 +28,9 @@ describe("fixtureSearch", () => {
   });
 
   it("filters by title/author search", () => {
-    expect(fixtureSearch({ search: "austen" }).results.map((b) => b.id)).toEqual([1342]);
+    const austen = fixtureSearch({ search: "austen" }).results;
+    expect(austen.map((b) => b.id)).toContain(1342);
+    expect(austen.every((b) => b.authors.some((a) => /austen/i.test(a.name)))).toBe(true);
     expect(fixtureSearch({ search: "sherlock" }).results[0].id).toBe(1661);
     expect(fixtureSearch({ search: "zzzz" }).results).toEqual([]);
   });
@@ -42,16 +44,15 @@ describe("fixtureSearch", () => {
 
   it("filters by language", () => {
     expect(fixtureSearch({ languages: "fr" }).results).toEqual([]);
-    expect(fixtureSearch({ languages: "en" }).results.length).toBe(
-      FIXTURE_CATALOGUE.length,
-    );
+    // count is the full match total; results is one (paginated) page
+    expect(fixtureSearch({ languages: "en" }).count).toBe(FIXTURE_CATALOGUE.length);
   });
 
   it("supports ascending/descending id sort", () => {
     const asc = fixtureSearch({ sort: "ascending" }).results.map((b) => b.id);
     const desc = fixtureSearch({ sort: "descending" }).results.map((b) => b.id);
-    expect(asc[0]).toBeLessThan(asc[asc.length - 1]);
-    expect(desc).toEqual([...asc].reverse());
+    expect(asc).toEqual([...asc].sort((a, b) => a - b));
+    expect(desc).toEqual([...desc].sort((a, b) => b - a));
   });
 
   it("paginates with next/previous cursors", () => {
