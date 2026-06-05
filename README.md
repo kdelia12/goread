@@ -74,8 +74,10 @@ you do **not** need the paid Apple Developer Program just to try Apple sign-in.
 
 - **Next.js 16 App Router + React 19 + Tailwind v4**, deployed to Vercel.
 - **Data** — all Gutenberg access goes through our backend (`/api/books*`), because gutenberg.org
-  and Gutendex send no CORS headers and block bots. Metadata via [Gutendex](https://gutendex.com)
-  with a bundled-fixture fallback; EPUB bytes streamed through an SSRF-guarded proxy.
+  sends no CORS headers and blocks bots. The catalogue is built from gutenberg.org's own
+  `pg_catalog.csv` feed (~90k books, parsed + cached in memory) — reachable even when the flaky
+  gutendex.com API is down — with a bundled-fixture fallback. EPUB bytes are streamed through an
+  SSRF-guarded proxy.
 - **Reader engine** — `jszip` unzips the EPUB, a dependency-free OPF parser builds the spine, each
   chapter is sanitized (DOMPurify) and rendered in a `sandbox`ed iframe with injected theme CSS.
 - **Persistence** — guest data in `localStorage`; when signed in, mirrored to Neon Postgres via

@@ -1,19 +1,18 @@
-import { searchBooks } from "@/lib/gutendex";
+import { FIXTURE_CATALOGUE } from "@/lib/gutendex";
+import { queryBooks } from "@/lib/book-query";
 import { BookRail } from "@/components/book-rail";
 import { SearchBar } from "@/components/search-bar";
 import { HeroBook } from "@/components/hero-book";
 import { ContinueReading } from "@/components/continue-reading";
 
-export const revalidate = 3600;
-
-export default async function HomePage() {
-  const [trending, gothic, adventure, philosophy, childrens] = await Promise.all([
-    searchBooks({ sort: "popular" }),
-    searchBooks({ topic: "gothic" }),
-    searchBooks({ topic: "adventure" }),
-    searchBooks({ topic: "philosophy" }),
-    searchBooks({ topic: "children" }),
-  ]);
+// Home uses the curated set for snappy, build-safe rails; "See all" and search
+// query the full ~75k catalogue.
+export default function HomePage() {
+  const trending = queryBooks(FIXTURE_CATALOGUE, { sort: "popular" });
+  const gothic = queryBooks(FIXTURE_CATALOGUE, { topic: "gothic" });
+  const adventure = queryBooks(FIXTURE_CATALOGUE, { topic: "adventure" });
+  const philosophy = queryBooks(FIXTURE_CATALOGUE, { topic: "philosophy" });
+  const childrens = queryBooks(FIXTURE_CATALOGUE, { topic: "children" });
 
   const featured = trending.results[0];
   const trendingRail = trending.results.slice(1);
