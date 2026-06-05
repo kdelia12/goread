@@ -54,6 +54,6 @@ export function buildReaderCss(theme: ReaderTheme, typo: ReaderTypography): stri
  */
 export function buildReaderDocument(css: string, bodyHtml: string): string {
   const csp =
-    "default-src 'none'; img-src blob: data: https:; style-src 'unsafe-inline'; font-src https: data:; form-action 'none'; base-uri 'none'";
+    "default-src 'none'; img-src 'self' blob: data: https:; style-src 'unsafe-inline'; font-src 'self' https: data:; form-action 'none'; base-uri 'none'";
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${csp}"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${css}</style></head><body>${bodyHtml}</body></html>`;
 }

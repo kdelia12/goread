@@ -117,8 +117,10 @@ the Project Gutenberg trademark on the reformatted texts it serves. See `/about`
 
 ## Notes / roadmap
 
-- Add `public/fonts/OpenDyslexic-Regular.woff2` to activate the OpenDyslexic reading face.
+- Cross-device sync (incl. the guest→account hand-off) runs client-side on sign-in via
+  `src/lib/sync-client.ts` + `<SyncManager>`; it needs Clerk + `DATABASE_URL` to do anything.
+- OpenDyslexic is bundled (`public/fonts/OpenDyslexic-Regular.woff2`); the reader option is live.
 - The reader uses a custom lightweight EPUB engine; swapping in Readium ts-toolkit behind the same
   interface is a planned upgrade. See `docs/FEATURES.md` for the full researched backlog.
-- Next 16 prefers `proxy.ts` over `middleware.ts`; the Clerk middleware still uses the (working)
-  `middleware.ts` convention.
+- The Clerk middleware intentionally keeps the `middleware.ts` convention (verified-working with
+  Clerk); Next 16's `proxy.ts` rename is cosmetic and the deprecation warning is harmless.

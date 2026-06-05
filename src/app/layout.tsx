@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
+import { SyncManager } from "@/components/sync-manager";
 import { isAuthEnabled } from "@/lib/auth";
 import { THEME_NAMES } from "@/lib/themes";
 
@@ -64,6 +65,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <main className="flex-1">{children}</main>
           <SiteFooter />
           <ServiceWorkerRegister />
+          {authEnabled ? <SyncManager /> : null}
         </ThemeProvider>
       </body>
     </html>

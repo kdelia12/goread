@@ -120,6 +120,14 @@ export function removeBookmark(id: string): void {
   );
 }
 
+/** All bookmarks including tombstones — used by the sync push/merge. */
+export function getAllBookmarksRaw(): Bookmark[] {
+  return read<Bookmark[]>("bookmarks", []);
+}
+export function replaceBookmarks(list: Bookmark[]): void {
+  write("bookmarks", list);
+}
+
 // ── Quotes ──────────────────────────────────────────────────────────────────
 export function getQuotes(bookId?: number): Quote[] {
   const all = read<Quote[]>("quotes", []);

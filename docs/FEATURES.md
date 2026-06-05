@@ -16,7 +16,8 @@ Reader. **Shipped** = in the current build. The rest is a prioritised roadmap.
   book / streak via native share sheet or download.
 - **PWA**: installable, offline service worker, platform-aware install (Android prompt + iOS
   Add-to-Home-Screen guidance, iPad detection).
-- **Accounts (optional)**: Clerk (Google/Apple), Neon Postgres sync with LWW delta-sync, guest mode.
+- **Accounts (optional)**: Clerk (Google/Apple), Neon Postgres two-way sync (LWW delta-sync) wired
+  client-side on sign-in **including the guest→account hand-off**, guest mode.
 - **Security**: SSRF-guarded proxy (per-hop redirect validation), Zod validation, rate limiting,
   DOMPurify + iframe sandbox + inner CSP, hardening headers.
 
