@@ -5,6 +5,11 @@ test("home renders the featured hero and trending rail", async ({ page }) => {
   await expect(page.getByText("Featured today")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Trending now" })).toBeVisible();
   await expect(page.getByRole("link", { name: /Start reading/ })).toBeVisible();
+
+  // Guard against broken CSS chunks: the themed background must actually apply.
+  const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  expect(bg).not.toBe("rgba(0, 0, 0, 0)");
+  expect(bg).not.toBe("transparent");
 });
 
 test("search returns matching books", async ({ page }) => {
