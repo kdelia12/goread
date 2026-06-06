@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useTheme } from "next-themes";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -70,7 +69,6 @@ function tocLabel(href: string, i: number): string {
 const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
 
 export function Reader({ id, title, author }: ReaderProps) {
-  const { resolvedTheme } = useTheme();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const bookRef = useRef<LoadedBook | null>(null);
@@ -88,7 +86,6 @@ export function Reader({ id, title, author }: ReaderProps) {
   const [prefs, setPrefs] = useState<Preferences | null>(null);
   const [panel, setPanel] = useState<"none" | "settings" | "toc">("none");
   const [toc, setToc] = useState<{ label: string; index: number }[]>([]);
-  const [colors, setColors] = useState({ bg: "#fff", fg: "#111", link: "#915", selection: "#eee" });
   const [hint, setHint] = useState<string | null>(null);
   const [bookmarkId, setBookmarkId] = useState<string | null>(null);
   const [tutorial, setTutorial] = useState(false);
@@ -104,18 +101,6 @@ export function Reader({ id, title, author }: ReaderProps) {
     setPrefs(getPreferences());
     if (!getSkipReaderTutorial()) setTutorial(true);
   }, []);
-
-  // Pull the reading-theme colours out of the active data-theme.
-  useEffect(() => {
-    const cs = getComputedStyle(document.documentElement);
-    const v = (name: string, fallback: string) => cs.getPropertyValue(name).trim() || fallback;
-    setColors({
-      bg: v("--reader-bg", "#fff"),
-      fg: v("--reader-fg", "#111"),
-      link: v("--reader-link", "#915"),
-      selection: v("--reader-selection", "#eee"),
-    });
-  }, [resolvedTheme]);
 
   // Download + parse the EPUB.
   useEffect(() => {
@@ -207,7 +192,7 @@ export function Reader({ id, title, author }: ReaderProps) {
   const scopedCss = useMemo(
     () =>
       prefs
-        ? buildScopedReaderCss(colors, {
+        ? buildScopedReaderCss({
             font: prefs.readerFont,
             fontSizePct: prefs.fontSizePct,
             lineHeight: prefs.lineHeight,
@@ -215,7 +200,7 @@ export function Reader({ id, title, author }: ReaderProps) {
             mode: prefs.readingMode,
           })
         : "",
-    [colors, prefs],
+    [prefs],
   );
 
   const go = useCallback(
@@ -421,7 +406,7 @@ export function Reader({ id, title, author }: ReaderProps) {
           ref={scrollRef}
           onScroll={onScroll}
           className={cn(
-            "h-full overflow-y-auto",
+            "h-full overflow-y-auto bg-reader-bg text-reader-fg",
             status !== "ready" && "invisible",
           )}
         >
@@ -588,13 +573,13 @@ function Toggle({
         aria-label={label}
         disabled={disabled}
         onClick={() => onChange(!checked)}
-        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
-          checked ? "bg-accent" : "bg-border-strong"
+        className={`relative h-6 w-11 shrink-0 cursor-pointer rounded-full border transition-colors ${
+          checked ? "border-accent bg-accent" : "border-border-strong bg-surface-2"
         } ${disabled ? "cursor-not-allowed" : ""}`}
       >
         <span
-          className={`absolute top-0.5 h-5 w-5 rounded-full bg-surface transition-transform ${
-            checked ? "translate-x-[22px]" : "translate-x-0.5"
+          className={`absolute top-1/2 h-[18px] w-[18px] -translate-y-1/2 rounded-full bg-white shadow-md ring-1 ring-black/10 transition-[left] ${
+            checked ? "left-[24px]" : "left-[2px]"
           }`}
         />
       </button>

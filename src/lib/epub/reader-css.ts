@@ -14,13 +14,6 @@ export const READER_FONT_STACKS: Record<ReaderFont, string | null> = {
   publisher: null, // leave the book's own element defaults untouched
 };
 
-export interface ReaderTheme {
-  bg: string;
-  fg: string;
-  link: string;
-  selection: string;
-}
-
 export interface ReaderTypography {
   font: ReaderFont;
   fontSizePct: number;
@@ -32,12 +25,14 @@ export interface ReaderTypography {
 const ROOT = ".goread-reader";
 
 /**
- * Build the stylesheet for the inline reading surface. Every rule is scoped to
- * `.goread-reader` so it can't leak into the app chrome, and it re-establishes
- * element styling (headings, lists, blockquotes) that the app's CSS reset
- * would otherwise flatten. Pure → easy to unit test.
+ * Build the stylesheet for the inline reading surface. Colours come straight
+ * from the active theme's CSS variables (`--reader-*`), so the reader always
+ * matches the chosen theme via the cascade — no JS colour reads to go stale.
+ * Every rule is scoped to `.goread-reader` so it can't leak into the app
+ * chrome, and re-establishes element styling (headings, lists, blockquotes)
+ * that the app's CSS reset would otherwise flatten. Pure → easy to unit test.
  */
-export function buildScopedReaderCss(theme: ReaderTheme, typo: ReaderTypography): string {
+export function buildScopedReaderCss(typo: ReaderTypography): string {
   const stack = READER_FONT_STACKS[typo.font];
   const fontRule = stack ? `font-family:${stack};` : "";
   const basePx = Math.round(20 * (typo.fontSizePct / 100));
@@ -45,11 +40,12 @@ export function buildScopedReaderCss(theme: ReaderTheme, typo: ReaderTypography)
 
   const rules: string[] = [
     "@font-face{font-family:'OpenDyslexic';src:url('/fonts/OpenDyslexic-Regular.woff2') format('woff2');font-display:swap;}",
-    `${ROOT}{${fontRule}font-size:${basePx}px;line-height:${typo.lineHeight};color:${theme.fg};` +
+    `${ROOT}{${fontRule}font-size:${basePx}px;line-height:${typo.lineHeight};` +
+      `color:var(--reader-fg,#26211b);background:var(--reader-bg,#fbfaf6);` +
       `padding:28px ${typo.marginPct}% 160px;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;` +
       `overflow-wrap:break-word;-webkit-user-select:text;user-select:text;}`,
     `${ROOT} *{box-sizing:border-box;}`,
-    `${ROOT} ::selection{background:${theme.selection};}`,
+    `${ROOT} ::selection{background:var(--reader-selection,#f4e3c6);}`,
     `${ROOT} img{max-width:100%;height:auto;display:block;margin:1.4em auto;border-radius:2px;}`,
     // links are neutralised — render as plain text
     `${ROOT} a,${ROOT} a[data-link-disabled]{color:inherit;text-decoration:none;cursor:text;pointer-events:none;}`,
@@ -71,7 +67,6 @@ export function buildScopedReaderCss(theme: ReaderTheme, typo: ReaderTypography)
 
   if (editorial) {
     rules.push(
-      // refined measure + display chapter headings + a drop cap to open each chapter
       `${ROOT}[data-mode="editorial"]{max-width:38rem;margin-left:auto;margin-right:auto;letter-spacing:.002em;}`,
       `${ROOT}[data-mode="editorial"] h1,${ROOT}[data-mode="editorial"] h2{font-family:var(--font-cormorant),Georgia,serif;font-weight:600;letter-spacing:.01em;text-align:center;}`,
       `${ROOT}[data-mode="editorial"] h1{font-size:2.4em;}`,
