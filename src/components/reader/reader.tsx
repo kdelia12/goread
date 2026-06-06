@@ -252,9 +252,13 @@ export function Reader({ id, title, author }: ReaderProps) {
       onScroll();
     });
     return () => cancelAnimationFrame(r);
-    // onScroll intentionally omitted — we only want this on content/mode change
+    // Restore only when the CONTENT changes (which already happens on every
+    // mode switch, since the rendered html differs). Depending on `continuous`
+    // here would fire this effect early — while the old html is still mounted —
+    // consuming the saved-position ref and snapping the reader back to the top.
+    // onScroll + continuous intentionally omitted.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [html, status, continuous]);
+  }, [html, status]);
 
   function gotoChapter(index: number) {
     setPanel("none");
