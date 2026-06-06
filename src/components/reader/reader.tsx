@@ -43,6 +43,7 @@ import { cleanQuoteText, makeQuoteId, quoteCaption, quoteAttribution } from "@/l
 import { coverPaletteFor } from "@/lib/cover";
 import { ShareDialog } from "@/components/share/share-dialog";
 import { ReaderTutorial } from "@/components/reader/reader-tutorial";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 import type { Preferences, ReaderFont } from "@/lib/types";
 
 interface ReaderProps {
@@ -352,8 +353,9 @@ export function Reader({ id, title, author }: ReaderProps) {
 
   return (
     <div className="bg-reader-bg text-reader-fg">
-      {/* sticky toolbar: progress + actions */}
-      <div className="sticky top-0 z-30 bg-reader-bg">
+      {/* FIXED toolbar (out of the text flow — an in-flow sticky bar offsets
+          iOS text selection). Content clears it via padding-top in the CSS. */}
+      <div className="fixed inset-x-0 top-0 z-30 bg-reader-bg pt-[env(safe-area-inset-top)]">
         <div className="h-1 w-full bg-surface-2">
           <div
             className="h-full bg-accent transition-[width] duration-200"
@@ -374,6 +376,7 @@ export function Reader({ id, title, author }: ReaderProps) {
           <span className="mr-1 hidden text-xs tabular-nums text-muted-fg sm:inline">
             {formatPercent(pct)}
           </span>
+          <ThemeSwitcher />
           <IconBtn label="How the reader works" onClick={() => setTutorial(true)}>
             <HelpCircle className="h-5 w-5" />
           </IconBtn>

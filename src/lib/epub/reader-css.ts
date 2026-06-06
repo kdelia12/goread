@@ -42,7 +42,8 @@ export function buildScopedReaderCss(typo: ReaderTypography): string {
     "@font-face{font-family:'OpenDyslexic';src:url('/fonts/OpenDyslexic-Regular.woff2') format('woff2');font-display:swap;}",
     `${ROOT}{${fontRule}font-size:${basePx}px;line-height:${typo.lineHeight};` +
       `color:var(--reader-fg,#26211b);background:var(--reader-bg,#fbfaf6);` +
-      `padding:28px ${typo.marginPct}% 160px;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;` +
+      `padding:calc(env(safe-area-inset-top) + 4.5rem) ${typo.marginPct}% 160px;` +
+      `-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;` +
       `overflow-wrap:break-word;-webkit-user-select:text;user-select:text;}`,
     `${ROOT} *{box-sizing:border-box;}`,
     `${ROOT} ::selection{background:var(--reader-selection,#f4e3c6);}`,
@@ -59,7 +60,7 @@ export function buildScopedReaderCss(typo: ReaderTypography): string {
     `${ROOT} h4{font-size:1.1em;margin:1em 0 .4em;font-weight:600;}`,
     `${ROOT} hr{border:none;border-top:1px solid currentColor;opacity:.18;margin:2.4em 0;}`,
     `${ROOT} hr.goread-chsep{margin:4em 0;opacity:.14;}`,
-    `${ROOT} section[data-ch]{scroll-margin-top:4rem;}`,
+    `${ROOT} section[data-ch]{scroll-margin-top:calc(env(safe-area-inset-top) + 4.5rem);}`,
     `${ROOT} em,${ROOT} i{font-style:italic;}`,
     `${ROOT} strong,${ROOT} b{font-weight:700;}`,
     `${ROOT} sup{font-size:.7em;}`,

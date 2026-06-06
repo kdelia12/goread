@@ -10,7 +10,7 @@ describe("buildScopedReaderCss", () => {
     expect(css).toContain("color:var(--reader-fg,#26211b)");
     expect(css).toContain("background:var(--reader-bg,#fbfaf6)");
     expect(css).toContain("line-height:1.6");
-    expect(css).toContain("padding:28px 6%");
+    expect(css).toContain("padding:calc(env(safe-area-inset-top) + 4.5rem) 6%");
     expect(css).toContain("font-size:20px"); // 20 * 100%
     expect(css).toContain(READER_FONT_STACKS.literata as string);
     expect(css).toContain(".goread-reader ::selection{background:var(--reader-selection");

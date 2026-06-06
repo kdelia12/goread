@@ -221,12 +221,20 @@
     box-shadow: none !important;
   }
 
-  /* Reading mode: the reader owns the screen. The global header scrolls away
-     (so the reader text is in the document scroll — iOS selection works) and
-     the footer is hidden. */
+  /* iOS Safari can resize glyphs after layout (text auto-inflation), which
+     drifts painted line positions from where the engine hit-tests — a cause of
+     off-by-a-line text selection. Pin it. */
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  /* Reading mode: the reader owns the screen with its own FIXED toolbar.
+     The global header (a position:sticky element that repositions every scroll
+     frame, right before the selectable text) is the iOS selection-offset
+     culprit — hide it entirely while reading. Footer hidden too. */
   html.reading [data-chrome="header"] {
-    /* !important so it beats Tailwind's `sticky` utility (a later cascade layer) */
-    position: static !important;
+    display: none !important;
   }
   html.reading [data-chrome="footer"] {
     display: none;
