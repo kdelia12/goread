@@ -1,7 +1,17 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { Download, Share, X, Plus, MoreVertical, Check } from "lucide-react";
+import { createPortal } from "react-dom";
+import {
+  Download,
+  Share,
+  X,
+  Plus,
+  MoreVertical,
+  Check,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import {
   detectPlatform,
   detectDevice,
@@ -191,6 +201,96 @@ export function InstallButton() {
   }
 
   const { steps, note } = instructionsFor(device);
+  // iPad & Android put their Share/menu button at the TOP-right; iPhone at the
+  // bottom. Anchor the sheet to the same edge and point an arrow at the button.
+  const atTop = device === "ipad" || device === "android";
+  const pointerLabel = device === "android" ? "Menu" : "Share";
+
+  const overlay = open ? (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="install-sheet-title"
+      className={`fixed inset-0 z-[100] flex justify-center p-4 bg-black/55 backdrop-blur-sm transition-opacity duration-300 motion-reduce:transition-none ${
+        atTop ? "items-start" : "items-end"
+      } ${shown ? "opacity-100" : "opacity-0"}`}
+      onClick={() => setOpen(false)}
+    >
+      {/* arrow that points at the real Safari/browser button */}
+      <div
+        className={`pointer-events-none absolute flex flex-col items-center gap-1 text-accent ${
+          atTop ? "right-5 top-[max(0.5rem,env(safe-area-inset-top))]" : "bottom-[max(0.5rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2"
+        } ${shown ? "opacity-100" : "opacity-0"} transition-opacity duration-500`}
+      >
+        {atTop ? (
+          <>
+            <ChevronUp className="h-7 w-7 animate-bounce" />
+            <span className="rounded-full bg-accent px-2.5 py-0.5 text-xs font-semibold text-white shadow-md">
+              {pointerLabel} up here
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="rounded-full bg-accent px-2.5 py-0.5 text-xs font-semibold text-white shadow-md">
+              {pointerLabel} down here
+            </span>
+            <ChevronDown className="h-7 w-7 animate-bounce" />
+          </>
+        )}
+      </div>
+
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className={`w-full max-w-md transform-gpu rounded-3xl border border-border bg-surface px-5 pt-5 pb-6 shadow-2xl transition-transform duration-300 ease-out will-change-transform motion-reduce:transition-none ${
+          atTop
+            ? "mt-[calc(env(safe-area-inset-top)+3.25rem)]"
+            : "mb-[calc(env(safe-area-inset-bottom)+3.25rem)]"
+        } ${shown ? "translate-y-0" : atTop ? "-translate-y-3" : "translate-y-3"}`}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-accent to-amber-600 shadow-sm">
+              <span className="font-display text-2xl font-bold leading-none text-white">g</span>
+            </div>
+            <div>
+              <h2
+                id="install-sheet-title"
+                className="font-display text-lg font-semibold leading-tight text-fg"
+              >
+                Add goread to your Home Screen
+              </h2>
+              <p className="mt-0.5 text-sm text-muted-fg">Reads like a real app. No App Store.</p>
+            </div>
+          </div>
+          <button
+            aria-label="Close"
+            onClick={() => setOpen(false)}
+            className="-mr-1 inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-fg transition-colors hover:bg-surface-2 hover:text-fg"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <ol className="mt-5 space-y-1">
+          {steps.map((step, i) => (
+            <li key={i} className="flex items-center gap-4 rounded-2xl px-1 py-2.5">
+              <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent">
+                {step.icon}
+                <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-[11px] font-bold text-white shadow-sm">
+                  {i + 1}
+                </span>
+              </span>
+              <p className="text-[15px] leading-snug text-muted-fg">{step.body}</p>
+            </li>
+          ))}
+        </ol>
+
+        <p className="mt-3 rounded-xl bg-surface-2 px-3.5 py-2.5 text-xs leading-relaxed text-muted-fg">
+          {note}
+        </p>
+      </div>
+    </div>
+  ) : null;
 
   return (
     <>
@@ -198,70 +298,7 @@ export function InstallButton() {
         <Download className="h-4 w-4" />
         <span className="hidden sm:inline">Install</span>
       </Button>
-
-      {open ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="install-sheet-title"
-          className={`fixed inset-0 z-[60] flex items-end justify-center bg-black/60 backdrop-blur-sm transition-opacity duration-300 motion-reduce:transition-none sm:items-center sm:p-4 ${
-            shown ? "opacity-100" : "opacity-0"
-          }`}
-          onClick={() => setOpen(false)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className={`w-full max-w-md transform-gpu border border-border bg-surface shadow-2xl transition-transform duration-300 ease-out will-change-transform motion-reduce:transition-none px-5 pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] rounded-t-3xl border-b-0 sm:rounded-3xl sm:border-b sm:pb-6 sm:pt-5 ${
-              shown ? "translate-y-0" : "translate-y-full sm:translate-y-3"
-            }`}
-          >
-            {/* grab handle (mobile only) */}
-            <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-border sm:hidden" />
-
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-accent to-amber-600 shadow-sm">
-                  <span className="font-display text-2xl font-bold leading-none text-white">g</span>
-                </div>
-                <div>
-                  <h2
-                    id="install-sheet-title"
-                    className="font-display text-lg font-semibold leading-tight text-fg"
-                  >
-                    Add goread to your Home Screen
-                  </h2>
-                  <p className="mt-0.5 text-sm text-muted-fg">Reads like a real app. No App Store.</p>
-                </div>
-              </div>
-              <button
-                aria-label="Close"
-                onClick={() => setOpen(false)}
-                className="-mr-1 inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-fg transition-colors hover:bg-surface-2 hover:text-fg"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <ol className="mt-5 space-y-1">
-              {steps.map((step, i) => (
-                <li key={i} className="flex items-center gap-4 rounded-2xl px-1 py-2.5">
-                  <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent">
-                    {step.icon}
-                    <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-[11px] font-bold text-white shadow-sm">
-                      {i + 1}
-                    </span>
-                  </span>
-                  <p className="text-[15px] leading-snug text-muted-fg">{step.body}</p>
-                </li>
-              ))}
-            </ol>
-
-            <p className="mt-3 rounded-xl bg-surface-2 px-3.5 py-2.5 text-xs leading-relaxed text-muted-fg">
-              {note}
-            </p>
-          </div>
-        </div>
-      ) : null}
+      {overlay ? createPortal(overlay, document.body) : null}
     </>
   );
 }
