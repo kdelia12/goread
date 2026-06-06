@@ -11,10 +11,15 @@ export type ThemePreference = ThemeName | "system";
 
 export type ReaderFont =
   | "literata"
+  | "garamond"
   | "libre-baskerville"
   | "inter"
   | "opendyslexic"
   | "publisher";
+
+/** Standard reading or the magazine-style "editorial" treatment (drop cap,
+ *  display chapter headings, refined measure). */
+export type ReadingMode = "standard" | "editorial";
 
 export interface Author {
   name: string;
@@ -85,6 +90,10 @@ export interface Preferences {
   marginPct: number;
   /** continuous (infinite) scroll through the whole book vs. chapter-by-chapter */
   continuousScroll: boolean;
+  /** auto-advance to the next chapter when you reach the end of one */
+  autoAdvance: boolean;
+  /** standard reading vs. the magazine-style editorial treatment */
+  readingMode: ReadingMode;
   updatedAt: number;
 }
 
@@ -95,5 +104,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   lineHeight: 1.6,
   marginPct: 6,
   continuousScroll: false,
+  autoAdvance: false,
+  readingMode: "standard",
   updatedAt: 0,
 };

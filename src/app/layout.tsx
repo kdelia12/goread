@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Cormorant_Garamond, Literata } from "next/font/google";
+import { Inter, Cormorant_Garamond, Literata, EB_Garamond } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -20,6 +20,11 @@ const cormorant = Cormorant_Garamond({
   display: "swap",
 });
 const literata = Literata({ subsets: ["latin"], variable: "--font-literata", display: "swap" });
+const ebGaramond = EB_Garamond({
+  subsets: ["latin"],
+  variable: "--font-eb-garamond",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -77,7 +82,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${inter.variable} ${cormorant.variable} ${literata.variable} h-full`}
+      className={`${inter.variable} ${cormorant.variable} ${literata.variable} ${ebGaramond.variable} h-full`}
     >
       <body className="flex min-h-full flex-col bg-bg text-fg">
         <SiteJsonLd />

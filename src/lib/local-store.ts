@@ -140,6 +140,16 @@ export function removeQuote(id: string): void {
   write("quotes", getQuotes().filter((q) => q.id !== id));
 }
 
+// ── Reader onboarding tutorial ──────────────────────────────────────────────
+// Device-local UX flag (not synced). The reader shows the guided tour until the
+// reader checks "skip tutorial next time".
+export function getSkipReaderTutorial(): boolean {
+  return read<boolean>("skipReaderTutorial", false);
+}
+export function setSkipReaderTutorial(skip: boolean): void {
+  write("skipReaderTutorial", skip);
+}
+
 // ── Preferences ─────────────────────────────────────────────────────────────
 export function getPreferences(): Preferences {
   return { ...DEFAULT_PREFERENCES, ...read<Partial<Preferences>>("preferences", {}) };

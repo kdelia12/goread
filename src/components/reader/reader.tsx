@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTheme } from "next-themes";
 import Link from "next/link";
 import {
@@ -15,6 +15,7 @@ import {
   Loader2,
   Minus,
   Plus,
+  HelpCircle,
 } from "lucide-react";
 import {
   loadEpub,
@@ -23,7 +24,7 @@ import {
   releaseBook,
   type LoadedBook,
 } from "@/lib/epub/book-loader";
-import { buildReaderCss, buildReaderDocument } from "@/lib/epub/reader-css";
+import { buildScopedReaderCss } from "@/lib/epub/reader-css";
 import {
   getPreferences,
   savePreferences,
@@ -34,12 +35,15 @@ import {
   removeBookmark,
   getBookmarks,
   addQuote,
+  getSkipReaderTutorial,
+  setSkipReaderTutorial,
 } from "@/lib/local-store";
 import { formatPercent } from "@/lib/reading-position";
 import { cn } from "@/lib/utils";
 import { cleanQuoteText, makeQuoteId, quoteCaption, quoteAttribution } from "@/lib/share/quotes";
 import { coverPaletteFor } from "@/lib/cover";
 import { ShareDialog } from "@/components/share/share-dialog";
+import { ReaderTutorial } from "@/components/reader/reader-tutorial";
 import type { Preferences, ReaderFont } from "@/lib/types";
 
 interface ReaderProps {
@@ -50,6 +54,7 @@ interface ReaderProps {
 
 const FONT_OPTIONS: { value: ReaderFont; label: string }[] = [
   { value: "literata", label: "Serif" },
+  { value: "garamond", label: "Garamond" },
   { value: "libre-baskerville", label: "Baskerville" },
   { value: "inter", label: "Sans" },
   { value: "opendyslexic", label: "OpenDyslexic" },
@@ -62,14 +67,17 @@ function tocLabel(href: string, i: number): string {
   return /^\d/.test(pretty) || pretty.length < 3 ? `Section ${i + 1}` : pretty;
 }
 
+const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
+
 export function Reader({ id, title, author }: ReaderProps) {
   const { resolvedTheme } = useTheme();
-  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
   const bookRef = useRef<LoadedBook | null>(null);
   const restoreFracRef = useRef(0);
   const restorePctRef = useRef(0);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const detachScrollRef = useRef<(() => void) | null>(null);
+  const advancedRef = useRef(false);
 
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState("");
@@ -83,13 +91,19 @@ export function Reader({ id, title, author }: ReaderProps) {
   const [colors, setColors] = useState({ bg: "#fff", fg: "#111", link: "#915", selection: "#eee" });
   const [hint, setHint] = useState<string | null>(null);
   const [bookmarkId, setBookmarkId] = useState<string | null>(null);
+  const [tutorial, setTutorial] = useState(false);
   const [share, setShare] = useState<
     null | { spec: Parameters<typeof ShareDialog>[0]["spec"]; caption: string }
   >(null);
 
   const continuous = prefs?.continuousScroll ?? false;
+  const autoAdvance = prefs?.autoAdvance ?? false;
+  const readingMode = prefs?.readingMode ?? "standard";
 
-  useEffect(() => setPrefs(getPreferences()), []);
+  useEffect(() => {
+    setPrefs(getPreferences());
+    if (!getSkipReaderTutorial()) setTutorial(true);
+  }, []);
 
   // Pull the reading-theme colours out of the active data-theme.
   useEffect(() => {
@@ -122,7 +136,6 @@ export function Reader({ id, title, author }: ReaderProps) {
           startCh = Math.min(n - 1, Math.max(0, parseInt(chStr, 10) || 0));
           restoreFracRef.current = Number(fracStr) || 0;
         } else if (saved?.percentage && n > 0) {
-          // saved while in continuous mode — approximate a chapter for paginated
           startCh = Math.min(n - 1, Math.floor(saved.percentage * n));
           restoreFracRef.current = (saved.percentage * n) % 1;
         }
@@ -162,10 +175,14 @@ export function Reader({ id, title, author }: ReaderProps) {
     };
   }, [chapter, status, continuous]);
 
-  // Tear down scroll listeners + timers on unmount.
+  // Reset the auto-advance latch whenever the chapter changes.
+  useEffect(() => {
+    advancedRef.current = false;
+  }, [chapter, continuous]);
+
+  // Tear down timers on unmount.
   useEffect(
     () => () => {
-      detachScrollRef.current?.();
       if (saveTimer.current) clearTimeout(saveTimer.current);
     },
     [],
@@ -187,70 +204,84 @@ export function Reader({ id, title, author }: ReaderProps) {
     setBookmarkId(existing?.id ?? null);
   }, [id, chapter]);
 
-  // Re-inject the document whenever content, theme, or typography changes.
-  useEffect(() => {
-    if (!prefs || !iframeRef.current || !html) return;
-    const css = buildReaderCss(colors, {
-      font: prefs.readerFont,
-      fontSizePct: prefs.fontSizePct,
-      lineHeight: prefs.lineHeight,
-      marginPct: prefs.marginPct,
-    });
-    iframeRef.current.srcdoc = buildReaderDocument(css, html);
-  }, [html, colors, prefs]);
+  const scopedCss = useMemo(
+    () =>
+      prefs
+        ? buildScopedReaderCss(colors, {
+            font: prefs.readerFont,
+            fontSizePct: prefs.fontSizePct,
+            lineHeight: prefs.lineHeight,
+            marginPct: prefs.marginPct,
+            mode: prefs.readingMode,
+          })
+        : "",
+    [colors, prefs],
+  );
 
-  const onIframeLoad = useCallback(() => {
-    detachScrollRef.current?.(); // drop any listener from a previous document
-    const iframe = iframeRef.current;
-    const win = iframe?.contentWindow;
-    const docEl = iframe?.contentDocument?.documentElement;
-    if (!win || !docEl) return;
+  const go = useCallback(
+    (delta: number) => {
+      setChapter((c) => Math.max(0, Math.min(spineLen - 1, c + delta)));
+      setPanel("none");
+    },
+    [spineLen],
+  );
 
-    const max = docEl.scrollHeight - win.innerHeight;
+  const onScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const sh = el.scrollHeight - el.clientHeight;
+    const f = sh > 0 ? clamp01(el.scrollTop / sh) : 0;
+    const overall = continuous ? f : spineLen > 0 ? (chapter + f) / spineLen : 0;
+    setPct(overall);
+
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      saveProgress({
+        bookId: id,
+        cfi: continuous ? `scroll:${f.toFixed(4)}` : `chapter:${chapter}:${f.toFixed(4)}`,
+        percentage: overall,
+        locationLabel: null,
+        deviceId: null,
+        updatedAt: Date.now(),
+      });
+    }, 600);
+
+    // Auto-advance to the next chapter once the reader reaches the end.
+    if (!continuous && autoAdvance && f >= 0.985 && chapter < spineLen - 1 && !advancedRef.current) {
+      advancedRef.current = true;
+      flashHint("Next chapter →");
+      go(1);
+    }
+  }, [continuous, spineLen, chapter, autoAdvance, id, go]);
+
+  // Restore the reading position after content (re)renders.
+  useLayoutEffect(() => {
+    if (status !== "ready" || !html || !scrollRef.current) return;
+    const el = scrollRef.current;
     const restore = continuous ? restorePctRef.current : restoreFracRef.current;
     restoreFracRef.current = 0;
     restorePctRef.current = 0;
-    if (restore > 0 && max > 0) win.scrollTo(0, restore * max);
-
-    const onScroll = () => {
-      const sh = docEl.scrollHeight - win.innerHeight;
-      const f = sh > 0 ? Math.min(1, Math.max(0, win.scrollY / sh)) : 0;
-      const overall = continuous ? f : spineLen > 0 ? (chapter + f) / spineLen : 0;
-      setPct(overall);
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-      saveTimer.current = setTimeout(() => {
-        saveProgress({
-          bookId: id,
-          cfi: continuous ? `scroll:${f.toFixed(4)}` : `chapter:${chapter}:${f.toFixed(4)}`,
-          percentage: overall,
-          locationLabel: null,
-          deviceId: null,
-          updatedAt: Date.now(),
-        });
-      }, 600);
-    };
-    win.addEventListener("scroll", onScroll, { passive: true });
-    detachScrollRef.current = () => win.removeEventListener("scroll", onScroll);
-    onScroll();
-  }, [chapter, spineLen, id, continuous]);
-
-  function go(delta: number) {
-    if (spineLen === 0) return;
-    setChapter((c) => Math.max(0, Math.min(spineLen - 1, c + delta)));
-    setPanel("none");
-  }
+    const r = requestAnimationFrame(() => {
+      const sh = el.scrollHeight - el.clientHeight;
+      el.scrollTop = restore > 0 && sh > 0 ? restore * sh : 0;
+      onScroll();
+    });
+    return () => cancelAnimationFrame(r);
+    // onScroll intentionally omitted — we only want this on content/mode change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [html, status, continuous]);
 
   function gotoChapter(index: number) {
     setPanel("none");
     if (continuous) {
-      iframeRef.current?.contentDocument?.getElementById(`goread-ch-${index}`)?.scrollIntoView();
+      contentRef.current?.querySelector(`#goread-ch-${index}`)?.scrollIntoView();
     } else {
       setChapter(Math.max(0, Math.min(spineLen - 1, index)));
     }
   }
 
   function setContinuous(on: boolean) {
-    restorePctRef.current = pct; // keep the reader's place across the mode switch
+    restorePctRef.current = pct;
     if (!on && spineLen > 0) {
       setChapter(Math.min(spineLen - 1, Math.floor(pct * spineLen)));
       restoreFracRef.current = (pct * spineLen) % 1;
@@ -264,7 +295,7 @@ export function Reader({ id, title, author }: ReaderProps) {
 
   function flashHint(msg: string) {
     setHint(msg);
-    setTimeout(() => setHint(null), 2600);
+    setTimeout(() => setHint(null), 2400);
   }
 
   function toggleBookmark() {
@@ -291,7 +322,7 @@ export function Reader({ id, title, author }: ReaderProps) {
   }
 
   function captureQuote() {
-    const selection = iframeRef.current?.contentDocument?.getSelection?.()?.toString() ?? "";
+    const selection = document.getSelection?.()?.toString() ?? "";
     const text = cleanQuoteText(selection);
     if (!text) {
       flashHint("Select some text in the page, then tap Quote.");
@@ -322,7 +353,10 @@ export function Reader({ id, title, author }: ReaderProps) {
     <div className="flex h-[calc(100dvh-4rem)] flex-col bg-reader-bg text-reader-fg">
       {/* progress line */}
       <div className="h-1 w-full bg-surface-2">
-        <div className="h-full bg-accent transition-[width] duration-200" style={{ width: `${Math.round(pct * 100)}%` }} />
+        <div
+          className="h-full bg-accent transition-[width] duration-200"
+          style={{ width: `${Math.round(pct * 100)}%` }}
+        />
       </div>
 
       {/* top bar */}
@@ -340,6 +374,9 @@ export function Reader({ id, title, author }: ReaderProps) {
         <span className="mr-1 hidden text-xs tabular-nums text-muted-fg sm:inline">
           {formatPercent(pct)}
         </span>
+        <IconBtn label="How the reader works" onClick={() => setTutorial(true)}>
+          <HelpCircle className="h-5 w-5" />
+        </IconBtn>
         <IconBtn label="Save quote" onClick={captureQuote}>
           <QuoteIcon className="h-5 w-5" />
         </IconBtn>
@@ -355,7 +392,10 @@ export function Reader({ id, title, author }: ReaderProps) {
         <IconBtn label="Contents" onClick={() => setPanel((p) => (p === "toc" ? "none" : "toc"))}>
           <List className="h-5 w-5" />
         </IconBtn>
-        <IconBtn label="Settings" onClick={() => setPanel((p) => (p === "settings" ? "none" : "settings"))}>
+        <IconBtn
+          label="Settings"
+          onClick={() => setPanel((p) => (p === "settings" ? "none" : "settings"))}
+        >
           <Settings2 className="h-5 w-5" />
         </IconBtn>
       </div>
@@ -376,14 +416,23 @@ export function Reader({ id, title, author }: ReaderProps) {
             </Link>
           </div>
         ) : null}
-        <iframe
-          ref={iframeRef}
-          onLoad={onIframeLoad}
-          title={`${title} — reading surface`}
-          sandbox="allow-same-origin"
-          className="h-full w-full border-0"
-          style={{ display: status === "ready" ? "block" : "none" }}
-        />
+
+        <div
+          ref={scrollRef}
+          onScroll={onScroll}
+          className={cn(
+            "h-full overflow-y-auto",
+            status !== "ready" && "invisible",
+          )}
+        >
+          <style dangerouslySetInnerHTML={{ __html: scopedCss }} />
+          <div
+            ref={contentRef}
+            className="goread-reader"
+            data-mode={readingMode}
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
+        </div>
 
         {/* side panels */}
         {panel !== "none" ? (
@@ -418,7 +467,9 @@ export function Reader({ id, title, author }: ReaderProps) {
                         <button
                           onClick={() => gotoChapter(t.index)}
                           className={`w-full truncate rounded px-2 py-2 text-left text-sm hover:bg-surface-2 ${
-                            !continuous && t.index === chapter ? "font-semibold text-accent" : "text-fg"
+                            !continuous && t.index === chapter
+                              ? "font-semibold text-accent"
+                              : "text-fg"
                           }`}
                         >
                           {t.label}
@@ -468,6 +519,15 @@ export function Reader({ id, title, author }: ReaderProps) {
         </div>
       ) : null}
 
+      {tutorial ? (
+        <ReaderTutorial
+          onClose={(skip) => {
+            if (skip) setSkipReaderTutorial(true);
+            setTutorial(false);
+          }}
+        />
+      ) : null}
+
       {share ? (
         <ShareDialog
           spec={share.spec}
@@ -502,6 +562,46 @@ function IconBtn({
   );
 }
 
+function Toggle({
+  checked,
+  onChange,
+  label,
+  hint,
+  disabled,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+  hint: string;
+  disabled?: boolean;
+}) {
+  return (
+    <div className={cn("flex items-center justify-between", disabled && "opacity-40")}>
+      <span className="text-sm font-medium text-fg">
+        {label}
+        <span className="block text-xs font-normal text-muted-fg">{hint}</span>
+      </span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        disabled={disabled}
+        onClick={() => onChange(!checked)}
+        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+          checked ? "bg-accent" : "bg-border-strong"
+        } ${disabled ? "cursor-not-allowed" : ""}`}
+      >
+        <span
+          className={`absolute top-0.5 h-5 w-5 rounded-full bg-surface transition-transform ${
+            checked ? "translate-x-[22px]" : "translate-x-0.5"
+          }`}
+        />
+      </button>
+    </div>
+  );
+}
+
 function SettingsPanel({
   prefs,
   onChange,
@@ -513,30 +613,28 @@ function SettingsPanel({
 }) {
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-fg">
-          Continuous scroll
-          <span className="block text-xs font-normal text-muted-fg">
-            Infinite scroll the whole book
-          </span>
-        </span>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={prefs.continuousScroll}
-          aria-label="Continuous scroll"
-          onClick={() => onContinuous(!prefs.continuousScroll)}
-          className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
-            prefs.continuousScroll ? "bg-accent" : "bg-border-strong"
-          }`}
-        >
-          <span
-            className={`absolute top-0.5 h-5 w-5 rounded-full bg-surface transition-transform ${
-              prefs.continuousScroll ? "translate-x-[22px]" : "translate-x-0.5"
-            }`}
-          />
-        </button>
-      </div>
+      <Toggle
+        label="Editorial mode"
+        hint="Magazine-style: drop caps & display headings"
+        checked={prefs.readingMode === "editorial"}
+        onChange={(v) => onChange({ readingMode: v ? "editorial" : "standard" })}
+      />
+      <Toggle
+        label="Infinite scroll"
+        hint="Scroll the whole book continuously"
+        checked={prefs.continuousScroll}
+        onChange={onContinuous}
+      />
+      <Toggle
+        label="Auto-advance"
+        hint={prefs.continuousScroll ? "Off while infinite scroll is on" : "Jump to the next chapter at the end"}
+        checked={prefs.autoAdvance}
+        disabled={prefs.continuousScroll}
+        onChange={(v) => onChange({ autoAdvance: v })}
+      />
+
+      <div className="h-px bg-border" />
+
       <Stepper
         label="Font size"
         value={`${prefs.fontSizePct}%`}
