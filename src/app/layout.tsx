@@ -9,6 +9,8 @@ import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import { SyncManager } from "@/components/sync-manager";
 import { isAuthEnabled } from "@/lib/auth";
 import { THEME_NAMES } from "@/lib/themes";
+import { SiteJsonLd } from "@/components/json-ld";
+import { SITE_URL, SITE_NAME, SITE_TITLE, SITE_DESCRIPTION } from "@/lib/site";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 const cormorant = Cormorant_Garamond({
@@ -20,17 +22,42 @@ const cormorant = Cormorant_Garamond({
 const literata = Literata({ subsets: ["latin"], variable: "--font-literata", display: "swap" });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: {
-    default: "goread — read the classics, free",
+    default: SITE_TITLE,
     template: "%s · goread",
   },
-  description:
-    "A calm, beautiful reader for 70,000+ free public-domain books from Project Gutenberg. Bookmarks, reading themes, streaks, and your library — on every device.",
-  applicationName: "goread",
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  keywords: [
+    "free ebooks",
+    "Project Gutenberg",
+    "public domain books",
+    "read classics online",
+    "online ebook reader",
+    "free books",
+    "classic literature",
+    "EPUB reader",
+  ],
+  authors: [{ name: SITE_NAME }],
   manifest: "/manifest.webmanifest",
-  appleWebApp: { capable: true, statusBarStyle: "default", title: "goread" },
+  appleWebApp: { capable: true, statusBarStyle: "default", title: SITE_NAME },
   icons: { icon: "/icon.svg", apple: "/icon-192.png" },
   formatDetection: { telephone: false },
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    url: "/",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+  },
 };
 
 export const viewport: Viewport = {
@@ -53,6 +80,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${inter.variable} ${cormorant.variable} ${literata.variable} h-full`}
     >
       <body className="flex min-h-full flex-col bg-bg text-fg">
+        <SiteJsonLd />
         <ThemeProvider
           attribute="data-theme"
           themes={[...THEME_NAMES]}

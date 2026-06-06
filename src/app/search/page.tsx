@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { searchBooks } from "@/lib/gutendex";
 import { BookGrid } from "@/components/book-grid";
 import { SearchBar } from "@/components/search-bar";
@@ -9,6 +10,44 @@ import { SearchX } from "lucide-react";
 export const dynamic = "force-dynamic";
 
 type SP = { q?: string; topic?: string; sort?: string; page?: string };
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<SP>;
+}): Promise<Metadata> {
+  const sp = await searchParams;
+  const q = sp.q?.trim() || undefined;
+  const topic = sp.topic?.trim() || undefined;
+  const page = sp.page ? Math.max(1, Number.parseInt(sp.page, 10) || 1) : 1;
+
+  // Free-text queries and deep pages are infinite — let crawlers follow links
+  // through them but keep them out of the index.
+  const noindex = Boolean(q) || page > 1;
+
+  if (q) {
+    return {
+      title: `Search: ${q}`,
+      description: `Free public-domain books matching “${q}” — read beautifully on goread.`,
+      robots: { index: false, follow: true },
+    };
+  }
+  if (topic) {
+    const label = genreLabel(topic) ?? topic;
+    return {
+      title: `${label} — free classics`,
+      description: `Browse free ${label.toLowerCase()} from Project Gutenberg, beautiful to read on any device.`,
+      alternates: { canonical: `/search?topic=${encodeURIComponent(topic)}` },
+      robots: noindex ? { index: false, follow: true } : undefined,
+    };
+  }
+  return {
+    title: "Browse the library",
+    description: "Browse 70,000 free public-domain classics, beautiful to read on any device.",
+    alternates: { canonical: "/search" },
+    robots: noindex ? { index: false, follow: true } : undefined,
+  };
+}
 
 export default async function SearchPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;

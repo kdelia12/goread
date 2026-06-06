@@ -7,11 +7,22 @@ import { BookCover } from "@/components/book-cover";
 import { BookActions } from "@/components/book-actions";
 import { TrackVisit } from "@/components/track-visit";
 import { Recommendations } from "@/components/recommendations";
+import { BookJsonLd } from "@/components/json-ld";
+import { displayTitle } from "@/lib/format";
 import { compactNumber } from "@/lib/utils";
 
 function parseId(id: string): number | null {
   const n = Number(id);
   return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+/** A short, clean meta description even when the catalogue has no summary. */
+function bookDescription(title: string, author: string, summary?: string | null): string {
+  if (summary && summary.trim().length > 0) {
+    const s = summary.replace(/\s+/g, " ").trim();
+    return s.length > 200 ? `${s.slice(0, 199).trimEnd()}…` : s;
+  }
+  return `Read ${title} by ${author} free on goread — beautiful, distraction-free, on every device.`;
 }
 
 export async function generateMetadata({
@@ -22,10 +33,29 @@ export async function generateMetadata({
   const { id } = await params;
   const bookId = parseId(id);
   const book = bookId ? await getBook(bookId) : null;
-  if (!book) return { title: "Book not found" };
+  if (!book) {
+    return { title: "Book not found", robots: { index: false, follow: true } };
+  }
+  const title = displayTitle(book.title, 90);
+  const author = authorByline(book);
+  const description = bookDescription(title, author, book.summary);
+  const canonical = `/book/${book.id}`;
+
   return {
-    title: book.title,
-    description: book.summary ?? `Read ${book.title} free on goread.`,
+    title: `${title} — ${author}`,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      type: "book",
+      title: `${title} — ${author}`,
+      description,
+      url: canonical,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${title} — ${author}`,
+      description,
+    },
   };
 }
 
@@ -42,6 +72,15 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
       <TrackVisit
         stub={{ id: book.id, title: book.title, author: byline, coverUrl: book.coverUrl }}
+      />
+      <BookJsonLd
+        id={book.id}
+        title={displayTitle(book.title, 120)}
+        author={byline}
+        description={book.summary}
+        image={book.coverUrl}
+        subjects={book.subjects}
+        language={book.languages[0]}
       />
 
       <div className="grid gap-8 sm:grid-cols-[220px_1fr]">

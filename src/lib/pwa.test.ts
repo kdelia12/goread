@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   detectPlatform,
+  detectDevice,
   isIos,
   isAndroid,
   isStandalone,
@@ -44,6 +45,20 @@ describe("detectPlatform", () => {
   });
 });
 
+describe("detectDevice", () => {
+  it("separates iPhone from iPad (incl. iPadOS 13+ desktop UA)", () => {
+    expect(detectDevice(UA.iphone)).toBe("iphone");
+    expect(detectDevice(UA.ipadOld)).toBe("ipad");
+    expect(detectDevice(UA.ipadOS13Mac, 5)).toBe("ipad");
+    expect(detectDevice(UA.ipadOS13Mac, 0)).toBe("desktop");
+  });
+  it("detects Android and desktop", () => {
+    expect(detectDevice(UA.android)).toBe("android");
+    expect(detectDevice(UA.desktop)).toBe("desktop");
+    expect(detectDevice("")).toBe("desktop");
+  });
+});
+
 describe("isStandalone", () => {
   it("is true for installed PWAs in either signal", () => {
     expect(isStandalone({ displayModeStandalone: true })).toBe(true);
@@ -62,6 +77,11 @@ describe("installAvailability", () => {
     expect(
       installAvailability({ platform: "ios", standalone: false, hasNativePrompt: false }),
     ).toEqual({ canInstall: true, mode: "ios-instructions" });
+  });
+  it("falls back to manual instructions on Android without a prompt", () => {
+    expect(
+      installAvailability({ platform: "android", standalone: false, hasNativePrompt: false }),
+    ).toEqual({ canInstall: true, mode: "android-instructions" });
   });
   it("shows nothing once installed", () => {
     expect(

@@ -1,7 +1,8 @@
 {
-  "name": "goread — read the classics",
+  "id": "/",
+  "name": "goread — every classic, free",
   "short_name": "goread",
-  "description": "A calm, beautiful reader for 70,000+ free public-domain books from Project Gutenberg.",
+  "description": "Every classic, free. 70,000 timeless books, beautiful to read on any device.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
