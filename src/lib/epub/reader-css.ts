@@ -59,7 +59,7 @@ export function buildScopedReaderCss(typo: ReaderTypography): string {
     `${ROOT} h4{font-size:1.1em;margin:1em 0 .4em;font-weight:600;}`,
     `${ROOT} hr{border:none;border-top:1px solid currentColor;opacity:.18;margin:2.4em 0;}`,
     `${ROOT} hr.goread-chsep{margin:4em 0;opacity:.14;}`,
-    `${ROOT} section[data-ch]{scroll-margin-top:1rem;}`,
+    `${ROOT} section[data-ch]{scroll-margin-top:4rem;}`,
     `${ROOT} em,${ROOT} i{font-style:italic;}`,
     `${ROOT} strong,${ROOT} b{font-weight:700;}`,
     `${ROOT} sup{font-size:.7em;}`,

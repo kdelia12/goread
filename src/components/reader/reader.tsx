@@ -69,7 +69,6 @@ function tocLabel(href: string, i: number): string {
 const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
 
 export function Reader({ id, title, author }: ReaderProps) {
-  const scrollRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const bookRef = useRef<LoadedBook | null>(null);
   const restoreFracRef = useRef(0);
@@ -100,6 +99,13 @@ export function Reader({ id, title, author }: ReaderProps) {
   useEffect(() => {
     setPrefs(getPreferences());
     if (!getSkipReaderTutorial()) setTutorial(true);
+  }, []);
+
+  // Full-screen reading: the global header scrolls away (not sticky) and the
+  // footer is hidden, so the reader's own toolbar is the only sticky chrome.
+  useEffect(() => {
+    document.documentElement.classList.add("reading");
+    return () => document.documentElement.classList.remove("reading");
   }, []);
 
   // Download + parse the EPUB.
@@ -211,11 +217,13 @@ export function Reader({ id, title, author }: ReaderProps) {
     [spineLen],
   );
 
+  // The reading text lives in the document flow and the WINDOW scrolls — an
+  // inner overflow-y-auto container makes iOS Safari offset text selection by
+  // the scroll amount (you tap one line, a different line is selected).
   const onScroll = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const sh = el.scrollHeight - el.clientHeight;
-    const f = sh > 0 ? clamp01(el.scrollTop / sh) : 0;
+    const doc = document.documentElement;
+    const sh = doc.scrollHeight - window.innerHeight;
+    const f = sh > 0 ? clamp01(window.scrollY / sh) : 0;
     const overall = continuous ? f : spineLen > 0 ? (chapter + f) / spineLen : 0;
     setPct(overall);
 
@@ -239,23 +247,27 @@ export function Reader({ id, title, author }: ReaderProps) {
     }
   }, [continuous, spineLen, chapter, autoAdvance, id, go]);
 
+  // Drive progress from the page scroll.
+  useEffect(() => {
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [onScroll]);
+
   // Restore the reading position after content (re)renders.
   useLayoutEffect(() => {
-    if (status !== "ready" || !html || !scrollRef.current) return;
-    const el = scrollRef.current;
+    if (status !== "ready" || !html) return;
     const restore = continuous ? restorePctRef.current : restoreFracRef.current;
     restoreFracRef.current = 0;
     restorePctRef.current = 0;
     const r = requestAnimationFrame(() => {
-      const sh = el.scrollHeight - el.clientHeight;
-      el.scrollTop = restore > 0 && sh > 0 ? restore * sh : 0;
+      const sh = document.documentElement.scrollHeight - window.innerHeight;
+      window.scrollTo(0, restore > 0 && sh > 0 ? restore * sh : 0);
       onScroll();
     });
     return () => cancelAnimationFrame(r);
     // Restore only when the CONTENT changes (which already happens on every
-    // mode switch, since the rendered html differs). Depending on `continuous`
-    // here would fire this effect early — while the old html is still mounted —
-    // consuming the saved-position ref and snapping the reader back to the top.
+    // mode switch). Depending on `continuous` would fire this early — while the
+    // old html is still mounted — and snap the reader back to the top.
     // onScroll + continuous intentionally omitted.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [html, status]);
@@ -339,81 +351,73 @@ export function Reader({ id, title, author }: ReaderProps) {
   }
 
   return (
-    <div className="flex h-[calc(100dvh-4rem)] flex-col bg-reader-bg text-reader-fg">
-      {/* progress line */}
-      <div className="h-1 w-full bg-surface-2">
-        <div
-          className="h-full bg-accent transition-[width] duration-200"
-          style={{ width: `${Math.round(pct * 100)}%` }}
-        />
-      </div>
-
-      {/* top bar */}
-      <div className="flex h-12 shrink-0 items-center gap-1 border-b border-border px-2 sm:px-4">
-        <Link
-          href={`/book/${id}`}
-          aria-label="Back to book"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-[var(--radius)] text-muted-fg hover:bg-surface-2"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-display text-sm font-semibold text-fg">{title}</p>
-        </div>
-        <span className="mr-1 hidden text-xs tabular-nums text-muted-fg sm:inline">
-          {formatPercent(pct)}
-        </span>
-        <IconBtn label="How the reader works" onClick={() => setTutorial(true)}>
-          <HelpCircle className="h-5 w-5" />
-        </IconBtn>
-        <IconBtn label="Save quote" onClick={captureQuote}>
-          <QuoteIcon className="h-5 w-5" />
-        </IconBtn>
-        <IconBtn
-          label={bookmarkId ? "Remove bookmark" : "Bookmark this spot"}
-          onClick={toggleBookmark}
-        >
-          <Bookmark
-            className={cn("h-5 w-5", bookmarkId && "text-accent")}
-            fill={bookmarkId ? "currentColor" : "none"}
+    <div className="bg-reader-bg text-reader-fg">
+      {/* sticky toolbar: progress + actions */}
+      <div className="sticky top-0 z-30 bg-reader-bg">
+        <div className="h-1 w-full bg-surface-2">
+          <div
+            className="h-full bg-accent transition-[width] duration-200"
+            style={{ width: `${Math.round(pct * 100)}%` }}
           />
-        </IconBtn>
-        <IconBtn label="Contents" onClick={() => setPanel((p) => (p === "toc" ? "none" : "toc"))}>
-          <List className="h-5 w-5" />
-        </IconBtn>
-        <IconBtn
-          label="Settings"
-          onClick={() => setPanel((p) => (p === "settings" ? "none" : "settings"))}
-        >
-          <Settings2 className="h-5 w-5" />
-        </IconBtn>
+        </div>
+        <div className="flex h-12 items-center gap-1 border-b border-border px-2 sm:px-4">
+          <Link
+            href={`/book/${id}`}
+            aria-label="Back to book"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-[var(--radius)] text-muted-fg hover:bg-surface-2"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-display text-sm font-semibold text-fg">{title}</p>
+          </div>
+          <span className="mr-1 hidden text-xs tabular-nums text-muted-fg sm:inline">
+            {formatPercent(pct)}
+          </span>
+          <IconBtn label="How the reader works" onClick={() => setTutorial(true)}>
+            <HelpCircle className="h-5 w-5" />
+          </IconBtn>
+          <IconBtn label="Save quote" onClick={captureQuote}>
+            <QuoteIcon className="h-5 w-5" />
+          </IconBtn>
+          <IconBtn
+            label={bookmarkId ? "Remove bookmark" : "Bookmark this spot"}
+            onClick={toggleBookmark}
+          >
+            <Bookmark
+              className={cn("h-5 w-5", bookmarkId && "text-accent")}
+              fill={bookmarkId ? "currentColor" : "none"}
+            />
+          </IconBtn>
+          <IconBtn label="Contents" onClick={() => setPanel((p) => (p === "toc" ? "none" : "toc"))}>
+            <List className="h-5 w-5" />
+          </IconBtn>
+          <IconBtn
+            label="Settings"
+            onClick={() => setPanel((p) => (p === "settings" ? "none" : "settings"))}
+          >
+            <Settings2 className="h-5 w-5" />
+          </IconBtn>
+        </div>
       </div>
 
-      {/* reading surface */}
-      <div className="relative flex-1 overflow-hidden">
-        {status === "loading" ? (
-          <div className="flex h-full items-center justify-center gap-2 text-muted-fg">
-            <Loader2 className="h-5 w-5 animate-spin" /> Loading book…
-          </div>
-        ) : null}
-        {status === "error" ? (
-          <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-            <p className="font-display text-xl font-semibold text-fg">Couldn’t open this book</p>
-            <p className="max-w-md text-sm text-muted-fg">{error}</p>
-            <Link href={`/book/${id}`} className="text-sm text-accent underline">
-              Back to book details
-            </Link>
-          </div>
-        ) : null}
-
-        <div
-          ref={scrollRef}
-          onScroll={onScroll}
-          className={cn(
-            "h-full overflow-y-auto bg-reader-bg text-reader-fg",
-            status !== "ready" && "invisible",
-          )}
-        >
+      {/* reading surface — lives in the document flow; the WINDOW scrolls */}
+      {status === "loading" ? (
+        <div className="flex min-h-[70dvh] items-center justify-center gap-2 text-muted-fg">
+          <Loader2 className="h-5 w-5 animate-spin" /> Loading book…
+        </div>
+      ) : null}
+      {status === "error" ? (
+        <div className="flex min-h-[70dvh] flex-col items-center justify-center gap-3 px-6 text-center">
+          <p className="font-display text-xl font-semibold text-fg">Couldn’t open this book</p>
+          <p className="max-w-md text-sm text-muted-fg">{error}</p>
+          <Link href={`/book/${id}`} className="text-sm text-accent underline">
+            Back to book details
+          </Link>
+        </div>
+      ) : null}
+      {status === "ready" ? (
+        <>
           <style dangerouslySetInnerHTML={{ __html: scopedCss }} />
           <div
             ref={contentRef}
@@ -421,60 +425,60 @@ export function Reader({ id, title, author }: ReaderProps) {
             data-mode={readingMode}
             dangerouslySetInnerHTML={{ __html: html }}
           />
-        </div>
+        </>
+      ) : null}
 
-        {/* side panels */}
-        {panel !== "none" ? (
-          <>
-            <div className="absolute inset-0 z-10 bg-black/20" onClick={() => setPanel("none")} />
-            <aside
-              role="dialog"
-              aria-modal="true"
-              aria-label={panel === "settings" ? "Reading settings" : "Contents"}
-              className="absolute right-0 top-0 z-20 flex h-full w-80 max-w-[85%] flex-col border-l border-border bg-surface shadow-2xl"
-            >
-              <div className="flex h-12 items-center justify-between border-b border-border px-2 pl-4">
-                <h2 className="font-display text-base font-semibold text-fg">
-                  {panel === "settings" ? "Reading settings" : "Contents"}
-                </h2>
-                <button
-                  aria-label="Close"
-                  onClick={() => setPanel("none")}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-[var(--radius)] text-muted-fg hover:bg-surface-2 hover:text-fg"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto p-4">
-                {panel === "settings" && prefs ? (
-                  <SettingsPanel prefs={prefs} onChange={updatePrefs} onContinuous={setContinuous} />
-                ) : null}
-                {panel === "toc" ? (
-                  <ul className="space-y-0.5">
-                    {toc.map((t) => (
-                      <li key={t.index}>
-                        <button
-                          onClick={() => gotoChapter(t.index)}
-                          className={`w-full truncate rounded px-2 py-2 text-left text-sm hover:bg-surface-2 ${
-                            !continuous && t.index === chapter
-                              ? "font-semibold text-accent"
-                              : "text-fg"
-                          }`}
-                        >
-                          {t.label}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </div>
-            </aside>
-          </>
-        ) : null}
-      </div>
+      {/* side panels (fixed overlay) */}
+      {panel !== "none" ? (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/30" onClick={() => setPanel("none")} />
+          <aside
+            role="dialog"
+            aria-modal="true"
+            aria-label={panel === "settings" ? "Reading settings" : "Contents"}
+            className="fixed bottom-0 right-0 top-0 z-50 flex w-80 max-w-[85%] flex-col border-l border-border bg-surface shadow-2xl"
+          >
+            <div className="flex h-12 items-center justify-between border-b border-border px-2 pl-4">
+              <h2 className="font-display text-base font-semibold text-fg">
+                {panel === "settings" ? "Reading settings" : "Contents"}
+              </h2>
+              <button
+                aria-label="Close"
+                onClick={() => setPanel("none")}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-[var(--radius)] text-muted-fg hover:bg-surface-2 hover:text-fg"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              {panel === "settings" && prefs ? (
+                <SettingsPanel prefs={prefs} onChange={updatePrefs} onContinuous={setContinuous} />
+              ) : null}
+              {panel === "toc" ? (
+                <ul className="space-y-0.5">
+                  {toc.map((t) => (
+                    <li key={t.index}>
+                      <button
+                        onClick={() => gotoChapter(t.index)}
+                        className={`w-full truncate rounded px-2 py-2 text-left text-sm hover:bg-surface-2 ${
+                          !continuous && t.index === chapter
+                            ? "font-semibold text-accent"
+                            : "text-fg"
+                        }`}
+                      >
+                        {t.label}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          </aside>
+        </>
+      ) : null}
 
-      {/* bottom nav */}
-      <div className="flex h-14 shrink-0 items-center justify-between border-t border-border px-4">
+      {/* bottom nav (fixed) */}
+      <div className="fixed inset-x-0 bottom-0 z-30 flex h-[calc(3.5rem+env(safe-area-inset-bottom))] items-center justify-between border-t border-border bg-reader-bg px-4 pb-[env(safe-area-inset-bottom)]">
         {continuous ? (
           <div className="flex w-full items-center justify-center text-xs tabular-nums text-muted-fg">
             {formatPercent(pct)} · continuous scroll

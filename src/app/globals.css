@@ -221,6 +221,17 @@
     box-shadow: none !important;
   }
 
+  /* Reading mode: the reader owns the screen. The global header scrolls away
+     (so the reader text is in the document scroll — iOS selection works) and
+     the footer is hidden. */
+  html.reading [data-chrome="header"] {
+    /* !important so it beats Tailwind's `sticky` utility (a later cascade layer) */
+    position: static !important;
+  }
+  html.reading [data-chrome="footer"] {
+    display: none;
+  }
+
   /* Respect reduced-motion globally for decorative transitions */
   @media (prefers-reduced-motion: reduce) {
     *,

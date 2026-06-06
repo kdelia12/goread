@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export function SiteFooter() {
   return (
-    <footer className="mt-20 border-t border-border">
+    <footer data-chrome="footer" className="mt-20 border-t border-border">
       <div className="mx-auto flex max-w-7xl flex-col justify-between gap-4 px-4 py-10 text-sm text-muted-fg sm:flex-row sm:px-6">
         <p className="max-w-md">
           goread · books from{" "}
