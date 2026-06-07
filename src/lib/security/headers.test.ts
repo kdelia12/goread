@@ -25,6 +25,11 @@ describe("contentSecurityPolicy", () => {
     );
   });
 
+  it("allows the production Clerk domain so ClerkJS can load", () => {
+    const csp = contentSecurityPolicy();
+    expect(csp).toContain("https://clerk.goread.fun");
+  });
+
   it("adds unsafe-eval only in dev", () => {
     expect(contentSecurityPolicy({ dev: true })).toContain("'unsafe-eval'");
     expect(contentSecurityPolicy({ dev: false })).not.toContain("'unsafe-eval'");

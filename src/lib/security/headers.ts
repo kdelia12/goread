@@ -30,14 +30,16 @@ export function contentSecurityPolicy(opts: CspOptions = {}): string {
     "object-src": "'none'",
     "frame-ancestors": "'none'",
     "form-action": "'self'",
-    "script-src": `${scriptSrc} https://*.clerk.accounts.dev https://challenges.cloudflare.com`,
+    // Clerk: dev instance uses *.clerk.accounts.dev; the PRODUCTION instance
+    // serves ClerkJS + the Frontend API from the custom domain clerk.goread.fun.
+    "script-src": `${scriptSrc} https://*.clerk.accounts.dev https://clerk.goread.fun https://*.clerk.com https://challenges.cloudflare.com`,
     "style-src": "'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src": "'self' https://fonts.gstatic.com data:",
     "img-src":
       "'self' data: blob: https://www.gutenberg.org https://*.clerk.com https://img.clerk.com",
     "connect-src":
-      "'self' https://gutendex.com https://www.gutenberg.org https://*.clerk.accounts.dev wss://*.clerk.accounts.dev",
-    "frame-src": "'self' https://*.clerk.accounts.dev https://challenges.cloudflare.com",
+      "'self' https://gutendex.com https://www.gutenberg.org https://*.clerk.accounts.dev wss://*.clerk.accounts.dev https://clerk.goread.fun wss://clerk.goread.fun https://*.clerk.com https://clerk-telemetry.com",
+    "frame-src": "'self' https://*.clerk.accounts.dev https://clerk.goread.fun https://challenges.cloudflare.com",
     "worker-src": "'self' blob:",
     "manifest-src": "'self'",
     "upgrade-insecure-requests": "",
