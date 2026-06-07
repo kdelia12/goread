@@ -49,6 +49,11 @@ export const metadata: Metadata = {
   appleWebApp: { capable: true, statusBarStyle: "default", title: SITE_NAME },
   icons: { icon: "/icon.svg", apple: "/icon-192.png" },
   formatDetection: { telephone: false },
+  // Set GOOGLE_SITE_VERIFICATION in Vercel to the token Google Search Console
+  // gives you (HTML-tag method) — renders <meta name="google-site-verification">.
+  verification: process.env.GOOGLE_SITE_VERIFICATION
+    ? { google: process.env.GOOGLE_SITE_VERIFICATION }
+    : undefined,
   alternates: { canonical: "/" },
   openGraph: {
     type: "website",
