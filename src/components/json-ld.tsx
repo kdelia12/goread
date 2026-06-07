@@ -39,6 +39,28 @@ export function SiteJsonLd() {
               "query-input": "required name=search_term_string",
             },
           },
+          {
+            "@type": "WebApplication",
+            "@id": `${SITE_URL}/#app`,
+            name: SITE_NAME,
+            url: SITE_URL,
+            description: SITE_DESCRIPTION,
+            applicationCategory: "BookApplication",
+            operatingSystem: "Any (web, iOS, Android, Kindle browser)",
+            browserRequirements: "Requires a modern browser; installable as a PWA",
+            isAccessibleForFree: true,
+            publisher: { "@id": `${SITE_URL}/#org` },
+            offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+            featureList: [
+              "70,000+ free public-domain classics from Project Gutenberg",
+              "Read instantly with no sign-up",
+              "Five reading themes including e-ink",
+              "Editorial typography",
+              "Bookmarks and reading streaks",
+              "Turn any quote into an Instagram Story",
+              "Installable to the home screen, works offline",
+            ],
+          },
         ],
       }}
     />

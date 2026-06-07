@@ -20,9 +20,9 @@ export function HeroBook({ book }: { book: Book }) {
         <p className="text-xs font-medium uppercase tracking-[0.18em] text-accent">
           Featured today
         </p>
-        <h1 className="mt-2 font-display text-4xl font-semibold leading-[1.04] text-fg md:text-6xl">
+        <h2 className="mt-2 font-display text-4xl font-semibold leading-[1.04] text-fg md:text-6xl">
           {title}
-        </h1>
+        </h2>
         <p className="mt-2 font-reading text-lg text-muted-fg">{byline}</p>
         {book.summary ? (
           <p className="mx-auto mt-4 max-w-xl font-reading text-base leading-relaxed text-fg/90 line-clamp-4 sm:mx-0">

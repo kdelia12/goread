@@ -19,6 +19,10 @@ export default function HomePage() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6">
+      <h1 className="sr-only">
+        goread — read every classic, free. 70,000 Project Gutenberg public-domain classics,
+        beautiful on any device, no sign-up, at goread.fun.
+      </h1>
       <section className="border-b border-border py-10 sm:py-14">
         {featured ? <HeroBook book={featured} /> : null}
         <div className="mx-auto mt-10 max-w-2xl">
