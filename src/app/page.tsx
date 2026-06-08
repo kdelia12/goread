@@ -5,6 +5,17 @@ import { SearchBar } from "@/components/search-bar";
 import { HeroBook } from "@/components/hero-book";
 import { ContinueReading } from "@/components/continue-reading";
 
+// Re-generate at most hourly so the "Featured today" pick rolls over to the new
+// day's book shortly after midnight (UTC) without needing a redeploy.
+export const revalidate = 3600;
+
+/** Stable index for "today": same all day, advances by one each UTC day. */
+function dailyIndex(count: number): number {
+  if (count <= 0) return 0;
+  const epochDay = Math.floor(Date.now() / 86_400_000);
+  return ((epochDay % count) + count) % count;
+}
+
 // Home uses the curated set for snappy, build-safe rails; "See all" and search
 // query the full ~75k catalogue.
 export default function HomePage() {
@@ -14,8 +25,11 @@ export default function HomePage() {
   const philosophy = queryBooks(FIXTURE_CATALOGUE, { topic: "philosophy" });
   const childrens = queryBooks(FIXTURE_CATALOGUE, { topic: "children" });
 
-  const featured = trending.results[0];
-  const trendingRail = trending.results.slice(1);
+  // Rotate the daily feature through the best-known classics, then show the rest
+  // (minus today's pick) in the Trending rail so nothing appears twice.
+  const featuredPool = trending.results.slice(0, 24);
+  const featured = featuredPool[dailyIndex(featuredPool.length)];
+  const trendingRail = trending.results.filter((b) => b.id !== featured?.id);
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6">

@@ -16,7 +16,7 @@ export function SiteFooter() {
           </a>
           , free in the U.S. public domain.
         </p>
-        <nav className="flex gap-5">
+        <nav className="flex flex-wrap gap-x-5 gap-y-2">
           <Link href="/about" className="hover:text-accent">
             About
           </Link>
@@ -25,6 +25,9 @@ export function SiteFooter() {
           </Link>
           <Link href="/library" className="hover:text-accent">
             Library
+          </Link>
+          <Link href="/gutenberg" className="hover:text-accent">
+            Gutenberg
           </Link>
         </nav>
       </div>

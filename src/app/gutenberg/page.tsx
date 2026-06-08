@@ -20,6 +20,18 @@ export const metadata: Metadata = {
   },
 };
 
+const COLLECTIONS = [
+  { href: "/gothic-novels", label: "Gothic novels", blurb: "Frankenstein, Dracula, Dorian Gray and the rest of the dark canon." },
+  { href: "/russian-literature", label: "Russian literature", blurb: "Tolstoy, Dostoevsky, Gogol — the deep end of the novel." },
+  { href: "/victorian-novels", label: "Victorian novels", blurb: "Dickens, the Brontës, Eliot and the golden age of fiction." },
+  { href: "/classic-romance", label: "Classic romance", blurb: "Austen's courtships and the Brontës' storm-lit longing." },
+  { href: "/dystopian-classics", label: "Dystopian classics", blurb: "The public-domain futures that invented the genre." },
+  { href: "/dark-mode-ebook-reader", label: "Dark-mode reader", blurb: "A true midnight theme made for reading at night." },
+  { href: "/eink-reader-online", label: "E-ink reader", blurb: "A paper-like theme for Kindle, Kobo and low-glow screens." },
+  { href: "/read-classics-on-iphone", label: "Read on iPhone", blurb: "Add goread to your home screen — no App Store needed." },
+  { href: "/ebook-reader-for-ipad-free", label: "Reader for iPad", blurb: "A big, comfortable, full-screen page for your tablet." },
+];
+
 const FEATURES = [
   { icon: Palette, title: "Five reading themes", body: "Daylight, paper, sepia, midnight and true e-ink — Gutenberg the way it should look." },
   { icon: BookOpen, title: "Nothing to download", body: "Open any of ~70,000 books and start reading instantly. No EPUB files, no conversions." },
@@ -99,6 +111,26 @@ export default function GutenbergPage() {
               className="rounded-full border border-border px-4 py-1.5 text-sm text-fg transition-colors hover:border-accent hover:text-accent"
             >
               {g.label}
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      {/* explore collections — the SEO landing hub */}
+      <section className="mt-16">
+        <h2 className="font-display text-2xl font-semibold text-fg">Explore by collection</h2>
+        <p className="mt-1 text-sm text-muted-fg">Hand-picked guides into the library.</p>
+        <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {COLLECTIONS.map((c) => (
+            <Link
+              key={c.href}
+              href={c.href}
+              className="group rounded-[var(--radius)] border border-border bg-surface p-4 transition-colors hover:border-accent"
+            >
+              <span className="font-display text-base font-semibold text-fg group-hover:text-accent">
+                {c.label}
+              </span>
+              <span className="mt-0.5 block text-sm text-muted-fg">{c.blurb}</span>
             </Link>
           ))}
         </div>
